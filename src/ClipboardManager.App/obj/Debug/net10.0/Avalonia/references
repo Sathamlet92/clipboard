@@ -23,6 +23,8 @@
 /home/sathamlet/.nuget/packages/avalonia.win32/11.3.12/lib/net8.0/Avalonia.Win32.Automation.dll
 /home/sathamlet/.nuget/packages/avalonia.win32/11.3.12/lib/net8.0/Avalonia.Win32.dll
 /home/sathamlet/.nuget/packages/avalonia.x11/11.3.12/lib/net8.0/Avalonia.X11.dll
+/home/sathamlet/.nuget/packages/avalonia.avaloniaedit/11.4.1/lib/net6.0/AvaloniaEdit.dll
+/home/sathamlet/.nuget/packages/avaloniaedit.textmate/11.4.1/lib/net6.0/AvaloniaEdit.TextMate.dll
 /home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.Core/obj/Debug/net10.0/ref/ClipboardManager.Core.dll
 /home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.Daemon.Client/obj/Debug/net10.0/ref/ClipboardManager.Daemon.Client.dll
 /home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.Data/obj/Debug/net10.0/ref/ClipboardManager.Data.dll
@@ -47,6 +49,7 @@
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/Microsoft.Win32.Registry.dll
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/mscorlib.dll
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/netstandard.dll
+/home/sathamlet/.nuget/packages/onigwrap/1.0.10/lib/netstandard2.0/Onigwrap.dll
 /home/sathamlet/.nuget/packages/reactiveui/20.1.1/lib/net8.0/ReactiveUI.dll
 /home/sathamlet/.nuget/packages/sixlabors.imagesharp/3.1.12/lib/net6.0/SixLabors.ImageSharp.dll
 /home/sathamlet/.nuget/packages/skiasharp/2.88.9/lib/net6.0/SkiaSharp.dll
@@ -214,5 +217,7 @@
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/System.Xml.XmlSerializer.dll
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/System.Xml.XPath.dll
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/System.Xml.XPath.XDocument.dll
+/home/sathamlet/.nuget/packages/textmatesharp/2.0.2/lib/netstandard2.0/TextMateSharp.dll
+/home/sathamlet/.nuget/packages/textmatesharp.grammars/2.0.2/lib/netstandard2.0/TextMateSharp.Grammars.dll
 /home/sathamlet/.nuget/packages/tmds.dbus.protocol/0.21.2/lib/net8.0/Tmds.DBus.Protocol.dll
 /usr/share/dotnet/packs/Microsoft.NETCore.App.Ref/10.0.3/ref/net10.0/WindowsBase.dll

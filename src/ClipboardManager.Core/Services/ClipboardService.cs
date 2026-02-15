@@ -5,6 +5,12 @@ using System.Text.Json;
 
 namespace ClipboardManager.Core.Services;
 
+public class LanguageDetectedEventArgs : EventArgs
+{
+    public long ItemId { get; set; }
+    public string Language { get; set; } = string.Empty;
+}
+
 public class ClipboardService
 {
     private readonly IClipboardRepository _repository;
@@ -13,6 +19,8 @@ public class ClipboardService
     private readonly OcrQueueService? _ocrQueueService;
     private readonly object? _embeddingService; // EmbeddingService (ML project)
     private readonly AppConfiguration _config;
+
+    public event EventHandler<LanguageDetectedEventArgs>? LanguageDetected;
 
     public ClipboardService(
         IClipboardRepository repository,
@@ -36,8 +44,34 @@ public class ClipboardService
         string? windowTitle = null,
         string? mimeType = null)
     {
-        // 1. Clasificar contenido
+        // 0. Filtrar datos vacíos o MIME types inválidos
+        if (data == null || data.Length == 0)
+        {
+            Console.WriteLine("⚠️  Datos vacíos, ignorando");
+            throw new ArgumentException("Empty clipboard data");
+        }
+        
+        // Filtrar MIME types de metadata
+        if (mimeType == "SAVE_TARGETS" || 
+            mimeType == "TARGETS" ||
+            mimeType == "MULTIPLE" ||
+            mimeType == "TIMESTAMP" ||
+            mimeType?.StartsWith("chromium/") == true)
+        {
+            Console.WriteLine($"⏭️  Ignorando MIME type de metadata: {mimeType}");
+            throw new ArgumentException($"Metadata MIME type: {mimeType}");
+        }
+        
+        Console.WriteLine($"📝 Procesando: {data.Length} bytes, MIME={mimeType}, App={sourceApp}");
+        
+        // 1. Clasificar contenido (SIMPLIFICADO - todo texto inicialmente)
         var contentType = _classificationService.Classify(data, mimeType);
+        
+        // Forzar a Text si no es imagen - ML decidirá si es código
+        if (contentType != ClipboardType.Image)
+        {
+            contentType = ClipboardType.Text;
+        }
 
         // 2. Detectar si es password
         string? textContent = null;
@@ -74,12 +108,9 @@ public class ClipboardService
             isEncrypted = true;
         }
 
-        // 6. Detectar lenguaje de código si aplica
+        // 6. Detectar lenguaje de código si aplica (SIMPLIFICADO - siempre "text")
         string? codeLanguage = null;
-        if (contentType == ClipboardType.Code && textContent != null)
-        {
-            codeLanguage = _classificationService.DetectCodeLanguage(textContent);
-        }
+        // ML decidirá en background si es código
 
         // 7. Crear metadata
         var metadata = new Dictionary<string, object>
@@ -109,7 +140,41 @@ public class ClipboardService
         // 9. Guardar en DB
         item.Id = await _repository.AddAsync(item);
 
-        // 10. Generar embeddings si está habilitado (background, no bloquea)
+        // 10. Detectar lenguaje con ML en BACKGROUND (analiza TODO el texto)
+        if (textContent != null && contentType == ClipboardType.Text)
+        {
+            var itemId = item.Id;
+            var text = textContent;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var detectedLanguage = _classificationService.DetectCodeLanguage(text);
+                    if (!string.IsNullOrEmpty(detectedLanguage))
+                    {
+                        // ML detectó código con confianza alta
+                        item.ContentType = ClipboardType.Code;
+                        item.CodeLanguage = detectedLanguage;
+                        await _repository.UpdateAsync(item);
+                        Console.WriteLine($"✅ ML detectó código {detectedLanguage} para item {itemId}");
+                        
+                        // Notificar evento
+                        LanguageDetected?.Invoke(this, new LanguageDetectedEventArgs
+                        {
+                            ItemId = itemId,
+                            Language = detectedLanguage
+                        });
+                    }
+                    // Si retorna null, se queda como Text (correcto)
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️  Error detectando lenguaje: {ex.Message}");
+                }
+            });
+        }
+
+        // 11. Generar embeddings si está habilitado (background, no bloquea)
         if (_config.Performance.SemanticSearch && _embeddingService != null && textContent != null)
         {
             _ = Task.Run(async () =>

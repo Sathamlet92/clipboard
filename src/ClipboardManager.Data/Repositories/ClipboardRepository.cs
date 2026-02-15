@@ -60,7 +60,7 @@ public class ClipboardRepository : IClipboardRepository
     {
         const string sql = @"
             SELECT id, content, content_type, ocr_text, embedding, source_app, 
-                   timestamp, is_password, is_encrypted, metadata, thumbnail
+                   timestamp, is_password, is_encrypted, metadata, thumbnail, code_language
             FROM clipboard_items
             WHERE id = @Id";
 
@@ -80,7 +80,7 @@ public class ClipboardRepository : IClipboardRepository
     {
         const string sql = @"
             SELECT id, content, content_type, ocr_text, embedding, source_app, 
-                   timestamp, is_password, is_encrypted, metadata, thumbnail
+                   timestamp, is_password, is_encrypted, metadata, thumbnail, code_language
             FROM clipboard_items
             ORDER BY timestamp DESC
             LIMIT @Limit";
@@ -110,7 +110,8 @@ public class ClipboardRepository : IClipboardRepository
                 is_password = @IsPassword,
                 is_encrypted = @IsEncrypted,
                 metadata = @Metadata,
-                thumbnail = @ThumbnailData
+                thumbnail = @ThumbnailData,
+                code_language = @CodeLanguage
             WHERE id = @Id";
 
         var timestamp = new DateTimeOffset(item.Timestamp).ToUnixTimeSeconds();
@@ -130,7 +131,8 @@ public class ClipboardRepository : IClipboardRepository
                 item.IsPassword,
                 item.IsEncrypted,
                 item.Metadata,
-                item.ThumbnailData
+                item.ThumbnailData,
+                item.CodeLanguage
             });
 
             return affected > 0;

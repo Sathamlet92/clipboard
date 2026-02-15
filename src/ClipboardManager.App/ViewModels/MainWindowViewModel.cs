@@ -438,4 +438,24 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
     }
+
+    public void UpdateLanguage(long itemId, string language)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == itemId);
+        if (item != null)
+        {
+            var index = Items.IndexOf(item);
+            if (index >= 0)
+            {
+                var freshItem = item.Item;
+                
+                // ML detectó código - actualizar tipo y lenguaje
+                freshItem.ContentType = ClipboardType.Code;
+                freshItem.CodeLanguage = language;
+                
+                Items[index] = new ClipboardItemViewModel(freshItem);
+                Console.WriteLine($"🔄 UI actualizada: Text → Code ({language}) para item {itemId}");
+            }
+        }
+    }
 }

@@ -29,6 +29,7 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private bool _ignoreNextClipboardChange = false;
     private ClipboardManager.ML.Services.EmbeddingService? _embeddingService;
+    private ClipboardManager.ML.Services.LanguageDetectionService? _languageDetector;
 
     public override void Initialize()
     {
@@ -117,9 +118,31 @@ public partial class App : Application
 
         // Repositorio con factory
         var clipboardRepo = new ClipboardRepository(dbFactory);
+        
+        // Embedding Service (ML) - inicializar primero
+        var mlModelsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".clipboard-manager",
+            "models",
+            "ml"
+        );
+        _embeddingService = new ClipboardManager.ML.Services.EmbeddingService(mlModelsPath);
+        
+        // Language Detection Service (ML) - usa modelo CodeBERTa
+        var langModelsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".clipboard-manager",
+            "models",
+            "language-detection"
+        );
+        _languageDetector = new ClipboardManager.ML.Services.LanguageDetectionService(langModelsPath);
+        
+        // Code Classifier Service (ML) - usa embeddings
+        var codeClassifier = new ClipboardManager.ML.Services.CodeClassifierService(_embeddingService);
+        _ = Task.Run(async () => await codeClassifier.InitializeAsync()); // Inicializar en background
 
-        // Servicios
-        var classificationService = new CoreClassificationService();
+        // Servicios - pasar code classifier y language detector
+        var classificationService = new CoreClassificationService(codeClassifier, _languageDetector);
         var securityService = new CoreSecurityService(config);
         
         // OCR Service y Queue
@@ -135,15 +158,6 @@ public partial class App : Application
         // Suscribirse al evento de OCR completado
         ocrQueueService.OcrCompleted += OnOcrCompleted;
         
-        // Embedding Service (ML)
-        var mlModelsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".clipboard-manager",
-            "models",
-            "ml"
-        );
-        _embeddingService = new ClipboardManager.ML.Services.EmbeddingService(mlModelsPath);
-        
         _clipboardService = new CoreClipboardService(
             clipboardRepo,
             classificationService,
@@ -151,6 +165,9 @@ public partial class App : Application
             config,
             ocrQueueService,
             _embeddingService); // Pasar embedding service
+        
+        // Suscribirse al evento de lenguaje detectado
+        _clipboardService.LanguageDetected += OnLanguageDetected;
     }
 
     private void OnOcrCompleted(object? sender, OcrCompletedEventArgs e)
@@ -161,6 +178,18 @@ public partial class App : Application
             if (_mainWindow?.DataContext is MainWindowViewModel viewModel)
             {
                 viewModel.UpdateOcrText(e.ItemId, e.OcrText);
+            }
+        });
+    }
+
+    private void OnLanguageDetected(object? sender, Core.Services.LanguageDetectedEventArgs e)
+    {
+        // Actualizar UI en el thread de UI
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (_mainWindow?.DataContext is MainWindowViewModel viewModel)
+            {
+                viewModel.UpdateLanguage(e.ItemId, e.Language);
             }
         });
     }

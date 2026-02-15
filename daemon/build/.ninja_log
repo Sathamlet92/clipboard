@@ -38,3 +38,9 @@
 1115	1216	1771137633550746803	clipboard-daemon	a76d19cc8165e65b
 3	1082	1771137886618198945	CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o	27263fcb59b5336f
 1082	1182	1771137887697213712	clipboard-daemon	a76d19cc8165e65b
+2	1087	1771139854974396383	CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o	27263fcb59b5336f
+1087	1190	1771139856059411940	clipboard-daemon	a76d19cc8165e65b
+3	1077	1771139944963685718	CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o	27263fcb59b5336f
+1077	1178	1771139946037701094	clipboard-daemon	a76d19cc8165e65b
+2	1160	1771140232064788482	CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o	27263fcb59b5336f
+1160	1263	1771140233222805005	clipboard-daemon	a76d19cc8165e65b

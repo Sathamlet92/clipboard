@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS clipboard_items (
     is_password BOOLEAN NOT NULL DEFAULT 0,
     is_encrypted BOOLEAN NOT NULL DEFAULT 0,
     metadata TEXT,
-    thumbnail BLOB
+    thumbnail BLOB,
+    code_language TEXT
 );
 
 -- Índices para performance

@@ -6,22 +6,100 @@ namespace ClipboardManager.Core.Services;
 
 public class ClassificationService
 {
+    private readonly object? _codeClassifier; // CodeClassifierService (opcional)
+    private readonly object? _languageDetector; // LanguageDetectionService (opcional)
+    
+    public ClassificationService(object? codeClassifier = null, object? languageDetector = null)
+    {
+        _codeClassifier = codeClassifier;
+        _languageDetector = languageDetector;
+    }
     private static readonly Dictionary<string, string[]> CodePatterns = new()
     {
-        ["csharp"] = new[] { "using ", "namespace ", "class ", "public ", "private ", "void ", "async ", "await " },
-        ["python"] = new[] { "def ", "import ", "from ", "class ", "if __name__", "print(", "self." },
-        ["javascript"] = new[] { "function ", "const ", "let ", "var ", "=>", "console.log", "require(" },
-        ["typescript"] = new[] { "interface ", "type ", "const ", "let ", ": string", ": number", "export " },
-        ["java"] = new[] { "public class", "private ", "protected ", "import java.", "System.out" },
-        ["cpp"] = new[] { "#include", "std::", "cout", "cin", "namespace ", "template<" },
-        ["rust"] = new[] { "fn ", "let ", "mut ", "impl ", "use ", "pub ", "match " },
-        ["go"] = new[] { "package ", "func ", "import ", "type ", "var ", "defer ", "go " },
-        ["sql"] = new[] { "SELECT ", "FROM ", "WHERE ", "INSERT ", "UPDATE ", "DELETE ", "CREATE TABLE" },
-        ["html"] = new[] { "<!DOCTYPE", "<html", "<head", "<body", "<div", "<span", "<script" },
-        ["css"] = new[] { "{", "}", ":", ";", "px", "color:", "background:", "margin:" },
-        ["json"] = new[] { "{", "}", "[", "]", "\":", "\",", "null" },
-        ["xml"] = new[] { "<?xml", "<", "/>", "</", "xmlns" },
-        ["bash"] = new[] { "#!/bin/bash", "echo ", "if [", "then", "fi", "for ", "done" }
+        ["csharp"] = new[] { 
+            "using System", "namespace ", "public class", "private ", "protected ", 
+            "void ", "async ", "await ", "var ", "string ", "int ", "Console.WriteLine",
+            "public static void Main", "get; set;", "=> "
+        },
+        ["python"] = new[] { 
+            "def ", "import ", "from ", "class ", "if __name__", "print(", "self.",
+            "elif ", "range(", "len(", "str(", "int(", "list(", "dict(", "True", "False", "None"
+        },
+        ["javascript"] = new[] { 
+            "function ", "const ", "let ", "var ", "=>", "console.log", "require(",
+            "module.exports", "export ", "import ", "document.", "window.", "async function"
+        },
+        ["typescript"] = new[] { 
+            "interface ", "type ", ": string", ": number", ": boolean", "export ", 
+            "import ", "const ", "let ", "function ", "async ", "Promise<"
+        },
+        ["java"] = new[] { 
+            "public class", "private ", "protected ", "import java.", "System.out",
+            "public static void main", "String[] args", "new ", "extends ", "implements ",
+            "ArrayList", "HashMap"
+        },
+        ["cpp"] = new[] { 
+            "#include", "std::", "cout", "cin", "namespace ", "template<",
+            "vector<", "map<", "using namespace", "endl", "::", "nullptr"
+        },
+        ["c"] = new[] {
+            "#include <stdio.h>", "#include <stdlib.h>", "printf(", "scanf(", 
+            "malloc(", "free(", "int main(", "void ", "struct ", "typedef "
+        },
+        ["rust"] = new[] { 
+            "fn ", "let ", "mut ", "impl ", "use ", "pub ", "match ", 
+            "println!(", "Vec<", "String::", "Option<", "Result<", "&str", "-> "
+        },
+        ["go"] = new[] { 
+            "package ", "func ", "import ", "type ", "var ", "defer ", "go ",
+            "fmt.Print", "make(", "chan ", "interface{}", ":= "
+        },
+        ["kotlin"] = new[] {
+            "fun ", "val ", "var ", "data class", "sealed class", "object ",
+            "companion object", "when ", "?.let", "listOf(", "mutableListOf("
+        },
+        ["sql"] = new[] { 
+            "SELECT ", "FROM ", "WHERE ", "INSERT ", "UPDATE ", "DELETE ", 
+            "CREATE TABLE", "JOIN ", "GROUP BY", "ORDER BY", "HAVING "
+        },
+        ["html"] = new[] { 
+            "<!DOCTYPE", "<html", "<head", "<body", "<div", "<span", "<script",
+            "</html>", "</body>", "<meta", "<link", "<style"
+        },
+        ["css"] = new[] { 
+            "display:", "background:", "color:", "margin:", "padding:", "border:",
+            "flex", "grid", "@media", "px", "rem", "vh", "vw"
+        },
+        ["json"] = new[] { 
+            "\":", "\",", "null", "true", "false", "[", "]", "{", "}"
+        },
+        ["xml"] = new[] { 
+            "<?xml", "xmlns", "<", "/>", "</", "version=", "encoding="
+        },
+        ["bash"] = new[] { 
+            "#!/bin/bash", "echo ", "if [", "then", "fi", "for ", "done",
+            "export ", "$", "chmod ", "grep ", "awk "
+        },
+        ["php"] = new[] {
+            "<?php", "function ", "class ", "public ", "private ", "$",
+            "echo ", "->", "=>", "namespace ", "use "
+        },
+        ["ruby"] = new[] {
+            "def ", "end", "class ", "module ", "puts ", "attr_accessor",
+            "do |", "each ", "map ", "select ", "@"
+        },
+        ["swift"] = new[] {
+            "import Foundation", "func ", "let ", "var ", "class ", "struct ",
+            "guard ", "if let", "switch ", "case ", "enum ", ": String", ": Int"
+        },
+        ["vue"] = new[] {
+            "<template>", "</template>", "<script>", "export default", "data()",
+            "methods:", "computed:", "v-if=", "v-for=", "@click=", "{{ "
+        },
+        ["react"] = new[] {
+            "import React", "useState", "useEffect", "useContext", "export default",
+            "return (", "className=", "onClick={", "props.", "JSX"
+        }
     };
 
     public ClipboardType Classify(byte[] content, string? mimeType = null)
@@ -57,6 +135,10 @@ public class ClassificationService
         if (IsTerminalCommand(text))
             return ClipboardType.Code; // Comandos se clasifican como Code
 
+        // Usar ML si está disponible, sino fallback a heurísticas
+        // TEMPORALMENTE DESHABILITADO - causaba timeouts
+        // if (_codeClassifier != null && IsCodeWithML(text))
+        //     return ClipboardType.Code;
         if (IsCode(text))
             return ClipboardType.Code;
 
@@ -65,27 +147,94 @@ public class ClassificationService
 
         return ClipboardType.Text;
     }
+    
+    private bool IsCodeWithML(string text)
+    {
+        // Si el clasificador no está disponible o no inicializado, skip
+        if (_codeClassifier == null)
+            return false;
+            
+        try
+        {
+            // Verificar si está inicializado
+            var isInitProperty = _codeClassifier.GetType().GetProperty("IsAvailable");
+            if (isInitProperty != null)
+            {
+                var isAvailable = (bool?)isInitProperty.GetValue(_codeClassifier);
+                if (isAvailable != true)
+                    return false; // No inicializado aún, usar fallback
+            }
+            
+            // Usar reflexión para llamar IsCodeAsync
+            var method = _codeClassifier.GetType().GetMethod("IsCodeAsync");
+            if (method != null)
+            {
+                var task = method.Invoke(_codeClassifier, new object[] { text });
+                if (task is Task<bool> boolTask)
+                {
+                    // Timeout de 100ms - si tarda más, usar fallback
+                    if (boolTask.Wait(100))
+                    {
+                        return boolTask.Result;
+                    }
+                    else
+                    {
+                        Console.WriteLine("⏱️  ML classifier timeout, usando fallback");
+                        return false;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error en ML classifier: {ex.Message}");
+        }
+        
+        return false;
+    }
 
     public string? DetectCodeLanguage(string text)
     {
-        if (!IsCode(text))
+        if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        var scores = new Dictionary<string, int>();
-
-        foreach (var (language, patterns) in CodePatterns)
+        // Intentar usar ML si está disponible (analiza TODO)
+        if (_languageDetector != null)
         {
-            var score = patterns.Count(pattern => 
-                text.Contains(pattern, StringComparison.OrdinalIgnoreCase));
-            
-            if (score > 0)
-                scores[language] = score;
+            try
+            {
+                var isAvailableProperty = _languageDetector.GetType().GetProperty("IsAvailable");
+                if (isAvailableProperty != null)
+                {
+                    var isAvailable = (bool?)isAvailableProperty.GetValue(_languageDetector);
+                    if (isAvailable == true)
+                    {
+                        var method = _languageDetector.GetType().GetMethod("DetectLanguageAsync");
+                        if (method != null)
+                        {
+                            var task = method.Invoke(_languageDetector, new object[] { text });
+                            if (task is Task<string?> stringTask)
+                            {
+                                // Timeout de 1000ms (1 segundo)
+                                if (stringTask.Wait(1000))
+                                {
+                                    var result = stringTask.Result;
+                                    // ML retorna null si score < 4.5 (no es código)
+                                    return result;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  Error en ML language detector: {ex.Message}");
+            }
         }
 
-        if (scores.Count == 0)
-            return null;
-
-        return scores.OrderByDescending(x => x.Value).First().Key;
+        // Sin ML disponible, retornar null (se queda como texto)
+        return null;
     }
 
     private static bool IsLikelyImage(byte[] content, string? mimeType)
@@ -226,38 +375,106 @@ public class ClassificationService
 
     private static bool IsCode(string text)
     {
-        if (text.Length < 10)
-            return false;
-
-        // Heurísticas para detectar código
-        var codeIndicators = 0;
-
-        // Tiene llaves o corchetes balanceados
-        if (text.Contains('{') && text.Contains('}'))
-            codeIndicators++;
-
-        if (text.Contains('[') && text.Contains(']'))
-            codeIndicators++;
-
-        // Tiene punto y coma al final de líneas
-        if (Regex.Matches(text, @";\s*$", RegexOptions.Multiline).Count > 2)
-            codeIndicators++;
-
-        // Tiene indentación consistente
-        var lines = text.Split('\n');
-        var indentedLines = lines.Count(l => l.StartsWith("    ") || l.StartsWith("\t"));
-        if (indentedLines > lines.Length * 0.3)
-            codeIndicators++;
-
-        // Tiene palabras clave de programación
-        var hasKeywords = CodePatterns.Values
-            .SelectMany(patterns => patterns)
-            .Any(pattern => text.Contains(pattern, StringComparison.OrdinalIgnoreCase));
+        text = text.Trim();
         
-        if (hasKeywords)
-            codeIndicators += 2;
+        // Muy corto para ser código (pero permitir snippets simples como print())
+        if (text.Length < 5)
+            return false;
+        
+        // Texto natural largo probablemente no es código
+        if (text.Length > 100 && !text.Contains('\n'))
+        {
+            // Si tiene muchas palabras en español/inglés, probablemente es texto
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var naturalWords = words.Count(w => w.Length > 3 && !w.Contains('(') && !w.Contains('{'));
+            if (naturalWords > words.Length * 0.7)
+                return false;
+        }
 
-        return codeIndicators >= 3;
+        var codeIndicators = 0;
+        var antiCodeIndicators = 0;
+
+        // INDICADORES POSITIVOS (es código)
+        
+        // 1. Tiene palabras clave de programación MUY específicas
+        var strongKeywords = new[]
+        {
+            "function ", "def ", "class ", "import ", "from ", "using ",
+            "namespace ", "public ", "private ", "protected ", "static ",
+            "const ", "let ", "var ", "async ", "await ", "return ",
+            "if (", "for (", "while (", "switch (", "try {", "catch (",
+            "print(", "println(", "console.log", "System.out"
+        };
+        
+        var hasStrongKeywords = strongKeywords.Any(kw => 
+            text.Contains(kw, StringComparison.OrdinalIgnoreCase));
+        
+        if (hasStrongKeywords)
+            codeIndicators += 4; // Peso MUY alto
+        
+        // 2. Tiene funciones con paréntesis: function(), print(), etc.
+        var functionCalls = Regex.Matches(text, @"\w+\s*\([^\)]*\)").Count;
+        if (functionCalls >= 1) // Relajado de 2 a 1
+            codeIndicators += 3;
+        
+        // 3. Tiene llaves o corchetes balanceados Y múltiples
+        var braceCount = text.Count(c => c == '{');
+        if (braceCount >= 2 && text.Count(c => c == '}') >= 2)
+            codeIndicators += 2;
+        else if (braceCount >= 1 && text.Count(c => c == '}') >= 1)
+            codeIndicators += 1; // Al menos una llave
+
+        // 4. Tiene punto y coma al final de líneas (múltiples)
+        var semicolons = Regex.Matches(text, @";\s*$", RegexOptions.Multiline).Count;
+        if (semicolons >= 2)
+            codeIndicators += 2;
+        else if (semicolons >= 1)
+            codeIndicators += 1;
+
+        // 5. Tiene indentación consistente (múltiples líneas indentadas)
+        var lines = text.Split('\n');
+        if (lines.Length >= 3)
+        {
+            var indentedLines = lines.Count(l => l.StartsWith("    ") || l.StartsWith("\t"));
+            if (indentedLines >= 3)
+                codeIndicators += 2;
+        }
+        
+        // 6. Tiene operadores de programación múltiples
+        var operators = Regex.Matches(text, @"[=<>!]+|&&|\|\||->|=>|\+=|-=|\*=|/=").Count;
+        if (operators >= 3)
+            codeIndicators += 2;
+        else if (operators >= 1)
+            codeIndicators += 1;
+
+        // INDICADORES NEGATIVOS (NO es código)
+        
+        // 1. Tiene muchas palabras naturales seguidas (5+)
+        if (Regex.IsMatch(text, @"(\b[a-záéíóúñA-ZÁÉÍÓÚÑ]{4,}\b\s+){5,}"))
+            antiCodeIndicators += 3;
+        
+        // 2. Tiene puntuación de texto natural abundante
+        var naturalPunctuation = text.Count(c => c == '.' || c == ',' || c == '?' || c == '!');
+        if (naturalPunctuation > text.Length * 0.05)
+            antiCodeIndicators += 2;
+        
+        // 3. Empieza con mayúscula y tiene estructura de oración
+        if (char.IsUpper(text[0]) && (text.EndsWith('.') || text.EndsWith(':')) && !text.Contains('('))
+            antiCodeIndicators += 2;
+        
+        // 4. Tiene palabras comunes de texto natural
+        var commonWords = new[] { " para ", " con ", " que ", " the ", " and ", " for ", " with ", " is a ", " to " };
+        var commonWordCount = commonWords.Count(w => text.Contains(w, StringComparison.OrdinalIgnoreCase));
+        if (commonWordCount >= 3)
+            antiCodeIndicators += 2;
+
+        // DECISIÓN FINAL - Relajado para snippets cortos
+        // Para texto corto (<50 chars), solo necesitamos 2 indicadores
+        if (text.Length < 50)
+            return codeIndicators >= 2 && codeIndicators > antiCodeIndicators;
+        
+        // Para texto más largo, necesitamos 4 indicadores
+        return codeIndicators >= 4 && codeIndicators > antiCodeIndicators * 1.5;
     }
 
     private static bool IsRichText(string text, string? mimeType)

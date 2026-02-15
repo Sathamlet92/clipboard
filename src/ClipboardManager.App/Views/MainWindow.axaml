@@ -87,14 +87,30 @@
                                                 CornerRadius="4"
                                                 Padding="10"
                                                 MaxHeight="300">
-                                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                                         VerticalScrollBarVisibility="Auto">
-                                                <TextBlock Text="{Binding CodeContent}"
-                                                          FontFamily="Cascadia Code,Consolas,Courier New,monospace"
-                                                          FontSize="12"
-                                                          Foreground="#D4D4D4"
-                                                          TextWrapping="NoWrap"/>
-                                            </ScrollViewer>
+                                            <Grid RowDefinitions="Auto,*">
+                                                <!-- Header con lenguaje -->
+                                                <Border Grid.Row="0"
+                                                       Background="#2D2D30"
+                                                       Padding="6,3"
+                                                       Margin="-10,-10,-10,5"
+                                                       CornerRadius="4,4,0,0">
+                                                    <TextBlock Text="{Binding CodeLanguage, FallbackValue='Code'}"
+                                                              FontSize="10"
+                                                              Foreground="#858585"
+                                                              FontFamily="Cascadia Code,Consolas,Courier New,monospace"/>
+                                                </Border>
+                                                
+                                                <!-- Código -->
+                                                <ScrollViewer Grid.Row="1"
+                                                             HorizontalScrollBarVisibility="Auto"
+                                                             VerticalScrollBarVisibility="Auto">
+                                                    <TextBlock Text="{Binding CodeContent}"
+                                                              FontFamily="Cascadia Code,Consolas,Courier New,monospace"
+                                                              FontSize="12"
+                                                              Foreground="#D4D4D4"
+                                                              TextWrapping="NoWrap"/>
+                                                </ScrollViewer>
+                                            </Grid>
                                         </Border>
                                         
                                         <!-- Texto normal -->
