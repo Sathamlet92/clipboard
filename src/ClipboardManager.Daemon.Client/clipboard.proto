@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package clipboardmanager;
+
+option csharp_namespace = "ClipboardManager.Daemon.Client";
+
+service ClipboardService {
+  rpc StreamClipboardEvents(Empty) returns (stream ClipboardEvent);
+  rpc GetClipboardContent(Empty) returns (ClipboardContent);
+}
+
+message Empty {}
+
+message ClipboardEvent {
+  bytes data = 1;
+  string source_app = 2;
+  string window_title = 3;
+  int64 timestamp = 4;
+  string mime_type = 5;
+  ContentType content_type = 6;
+}
+
+message ClipboardContent {
+  bytes data = 1;
+  string mime_type = 2;
+  ContentType content_type = 3;
+}
+
+enum ContentType {
+  UNKNOWN = 0;
+  TEXT = 1;
+  IMAGE = 2;
+  HTML = 3;
+  FILE = 4;
+}

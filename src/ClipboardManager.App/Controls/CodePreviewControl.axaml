@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ClipboardManager.App.Controls.CodePreviewControl">
+    
+    <Border Background="#1E1E1E" 
+            BorderBrush="#3E3E42" 
+            BorderThickness="1" 
+            CornerRadius="4"
+            Padding="8">
+        <AvaloniaEdit:TextEditor x:Name="CodeEditor"
+                                 Background="Transparent"
+                                 Foreground="#D4D4D4"
+                                 FontFamily="Cascadia Code,Consolas,Courier New,monospace"
+                                 FontSize="13"
+                                 IsReadOnly="True"
+                                 ShowLineNumbers="True"
+                                 WordWrap="False"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto" />
+    </Border>
+    
+</UserControl>

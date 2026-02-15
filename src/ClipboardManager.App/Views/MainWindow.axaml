@@ -1,0 +1,217 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ClipboardManager.App.ViewModels"
+        xmlns:controls="using:ClipboardManager.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="ClipboardManager.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Clipboard Manager"
+        Width="800" Height="600"
+        WindowStartupLocation="CenterScreen"
+        CanResize="True">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Search Bar -->
+        <Border Grid.Row="0" Background="#2D2D30" Padding="10">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto">
+                <!-- Barra de búsqueda -->
+                <TextBox Grid.Column="0" Grid.Row="0"
+                         Text="{Binding SearchQuery}"
+                         Watermark="Buscar en historial... (Ctrl+F)"
+                         FontSize="14"
+                         Padding="8"/>
+                <Button Grid.Column="1" Grid.Row="0"
+                        Content="🔍"
+                        Click="OnSearchClick"
+                        Margin="5,0,0,0"
+                        Width="40"/>
+                <Button Grid.Column="2" Grid.Row="0"
+                        Content="🗑️"
+                        Click="OnClearAllClick"
+                        Margin="5,0,0,0"
+                        Width="40"
+                        ToolTip.Tip="Limpiar todo el historial"/>
+                
+                <!-- Modo de búsqueda -->
+                <StackPanel Grid.Column="0" Grid.Row="1" 
+                           Orientation="Horizontal" 
+                           Margin="0,5,0,0">
+                    <TextBlock Text="Modo:" 
+                              VerticalAlignment="Center" 
+                              Margin="0,0,10,0"
+                              Foreground="#CCCCCC"/>
+                    <ComboBox SelectedIndex="{Binding SearchModeIndex}"
+                             Width="150">
+                        <ComboBoxItem Content="📝 Texto exacto"/>
+                        <ComboBoxItem Content="🧠 Semántico"/>
+                        <ComboBoxItem Content="⚡ Híbrido (recomendado)"/>
+                    </ComboBox>
+                    <TextBlock Text="💡 Híbrido: 70% exacto + 30% semántico. Semántico encuentra conceptos relacionados." 
+                              VerticalAlignment="Center" 
+                              Margin="10,0,0,0"
+                              Foreground="#808080"
+                              FontSize="11"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Items List -->
+        <Border Grid.Row="1" Background="#1E1E1E" Padding="5">
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#252526"
+                                    Margin="5"
+                                    Padding="10"
+                                    CornerRadius="4"
+                                    BorderBrush="#3E3E42"
+                                    BorderThickness="1"
+                                    Cursor="Hand"
+                                    PointerPressed="OnItemPressed">
+                                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                    <!-- Content Preview -->
+                                    <Grid Grid.Row="0" Grid.Column="0">
+                                        <!-- Código -->
+                                        <Border IsVisible="{Binding IsCode}"
+                                                Background="#1E1E1E"
+                                                BorderBrush="#3E3E42"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="10"
+                                                MaxHeight="300">
+                                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                         VerticalScrollBarVisibility="Auto">
+                                                <TextBlock Text="{Binding CodeContent}"
+                                                          FontFamily="Cascadia Code,Consolas,Courier New,monospace"
+                                                          FontSize="12"
+                                                          Foreground="#D4D4D4"
+                                                          TextWrapping="NoWrap"/>
+                                            </ScrollViewer>
+                                        </Border>
+                                        
+                                        <!-- Texto normal -->
+                                        <TextBlock Text="{Binding ContentPreview}"
+                                                   TextWrapping="Wrap"
+                                                   MaxHeight="60"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="#CCCCCC"
+                                                   FontSize="13">
+                                            <TextBlock.IsVisible>
+                                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                                    <Binding Path="!IsImage"/>
+                                                    <Binding Path="!IsCode"/>
+                                                </MultiBinding>
+                                            </TextBlock.IsVisible>
+                                        </TextBlock>
+                                        
+                                        <!-- Imagen -->
+                                        <Border IsVisible="{Binding IsImage}"
+                                                Background="#1A1A1A"
+                                                CornerRadius="4"
+                                                Padding="5"
+                                                HorizontalAlignment="Left">
+                                            <Image Source="{Binding ImageSource}"
+                                                   MaxHeight="200"
+                                                   MaxWidth="400"
+                                                   Stretch="Uniform"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        </Border>
+                                    </Grid>
+                                    
+                                    <!-- Type Badge -->
+                                    <Border Grid.Row="0" Grid.Column="1"
+                                            Background="#007ACC"
+                                            CornerRadius="3"
+                                            Padding="6,2"
+                                            Margin="5,0,0,0"
+                                            VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding ContentType}"
+                                                   Foreground="White"
+                                                   FontSize="10"/>
+                                    </Border>
+
+                                    <!-- Metadata -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                Orientation="Horizontal"
+                                                Margin="0,5,0,0"
+                                                Spacing="10">
+                                        <TextBlock Text="{Binding SourceApp}"
+                                                   Foreground="#858585"
+                                                   FontSize="11"/>
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='HH:mm:ss'}"
+                                                   Foreground="#858585"
+                                                   FontSize="11"/>
+                                        <TextBlock Text="{Binding OcrText}"
+                                                   Foreground="#4EC9B0"
+                                                   FontSize="10"
+                                                   IsVisible="{Binding HasOcr}"
+                                                   MaxWidth="400"
+                                                   MaxHeight="30"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="NoWrap"
+                                                   ToolTip.Tip="{Binding OcrText}"/>
+                                    </StackPanel>
+
+                                    <!-- Actions -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                                Orientation="Horizontal"
+                                                Margin="0,5,0,0"
+                                                Spacing="5">
+                                        <!-- Botón copiar texto OCR (solo para imágenes) -->
+                                        <Button Content="📝 Copiar texto"
+                                                FontSize="11"
+                                                Padding="8,4"
+                                                Click="OnCopyOcrTextClick"
+                                                IsVisible="{Binding IsImage}"
+                                                ToolTip.Tip="Copiar texto extraído de la imagen"/>
+                                        <Button Content="🗑️ Eliminar"
+                                                FontSize="11"
+                                                Padding="8,4"
+                                                Click="OnDeleteClick"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="#007ACC" Padding="8">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Items.Count, StringFormat='{}{0} items'}"
+                           Foreground="White"
+                           FontSize="12"
+                           VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1"
+                           Text="Ctrl+Shift+V para abrir | Esc para cerrar"
+                           Foreground="White"
+                           FontSize="11"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Loading Overlay -->
+        <Border Grid.Row="0" Grid.RowSpan="3"
+                Background="#80000000"
+                IsVisible="{Binding IsLoading}">
+            <TextBlock Text="Cargando..."
+                       Foreground="White"
+                       FontSize="16"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+
+</Window>

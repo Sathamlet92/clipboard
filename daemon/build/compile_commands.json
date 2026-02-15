@@ -1,0 +1,50 @@
+[
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/src/main.cpp.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/main.cpp",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/main.cpp",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/src/clipboard_monitor.cpp.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/clipboard_monitor.cpp",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/clipboard_monitor.cpp",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/src/clipboard_monitor.cpp.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/src/x11_monitor.cpp.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/x11_monitor.cpp",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/x11_monitor.cpp",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/src/x11_monitor.cpp.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/src/grpc_server.cpp.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/grpc_server.cpp",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/grpc_server.cpp",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/src/grpc_server.cpp.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/generated/clipboard.pb.cc.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated/clipboard.pb.cc",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated/clipboard.pb.cc",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/generated/clipboard.pb.cc.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/generated/clipboard.grpc.pb.cc.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated/clipboard.grpc.pb.cc",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated/clipboard.grpc.pb.cc",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/generated/clipboard.grpc.pb.cc.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/c++ -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -O3 -DNDEBUG -std=gnu++20 -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/wayland_monitor.cpp",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src/wayland_monitor.cpp",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/src/wayland_monitor.cpp.o"
+},
+{
+  "directory": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build",
+  "command": "/usr/bin/cc -DHAVE_WAYLAND -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/generated -I/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols -x c -O3 -DNDEBUG -Wall -Wextra -Wpedantic -O3 -o CMakeFiles/clipboard-daemon.dir/protocols/wlr-data-control-unstable-v1-protocol.c.o -c /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols/wlr-data-control-unstable-v1-protocol.c",
+  "file": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/protocols/wlr-data-control-unstable-v1-protocol.c",
+  "output": "/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir/protocols/wlr-data-control-unstable-v1-protocol.c.o"
+}
+]
