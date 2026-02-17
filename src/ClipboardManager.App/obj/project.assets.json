@@ -2878,7 +2878,8 @@
       "ClipboardManager.Daemon.Client >= 1.0.0",
       "ClipboardManager.Data >= 1.0.0",
       "ClipboardManager.ML >= 1.0.0",
-      "CommunityToolkit.Mvvm >= 8.2.1"
+      "CommunityToolkit.Mvvm >= 8.2.1",
+      "TextMateSharp.Grammars >= 2.0.2"
     ]
   },
   "packageFolders": {
@@ -2968,6 +2969,10 @@
           "CommunityToolkit.Mvvm": {
             "target": "Package",
             "version": "[8.2.1, )"
+          },
+          "TextMateSharp.Grammars": {
+            "target": "Package",
+            "version": "[2.0.2, )"
           }
         },
         "imports": [

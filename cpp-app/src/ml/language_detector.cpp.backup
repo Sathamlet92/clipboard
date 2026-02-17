@@ -1,0 +1,121 @@
+#include "language_detector.h"
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+
+LanguageDetector::LanguageDetector(const std::string& model_path) {
+    env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "LanguageDetector");
+    session_options_ = std::make_unique<Ort::SessionOptions>();
+    session_options_->SetIntraOpNumThreads(2);
+    
+    session_ = std::make_unique<Ort::Session>(*env_, model_path.c_str(), *session_options_);
+    
+    // Load labels
+    labels_ = {"C", "C++", "C#", "Java", "Python", "JavaScript", "TypeScript", 
+               "Rust", "Go", "Ruby", "PHP", "Swift", "Kotlin", "Scala", "Haskell",
+               "Lua", "Perl", "R", "Shell", "PowerShell", "SQL", "HTML", "CSS",
+               "Markdown", "JSON", "YAML"};
+    
+    std::cout << "✅ Language detector loaded" << std::endl;
+}
+
+bool LanguageDetector::is_code(const std::string& text) {
+    if (!session_ || text.empty()) {
+        return false;
+    }
+    
+    // Simple heuristics for code detection
+    int code_indicators = 0;
+    
+    if (text.find('{') != std::string::npos) code_indicators++;
+    if (text.find('}') != std::string::npos) code_indicators++;
+    if (text.find(';') != std::string::npos) code_indicators++;
+    if (text.find("function") != std::string::npos) code_indicators++;
+    if (text.find("class") != std::string::npos) code_indicators++;
+    if (text.find("def ") != std::string::npos) code_indicators++;
+    if (text.find("import ") != std::string::npos) code_indicators++;
+    if (text.find("return ") != std::string::npos) code_indicators++;
+    
+    return code_indicators >= 2;
+}
+
+std::string LanguageDetector::detect_language(const std::string& text) {
+    if (!session_) {
+        return "unknown";
+    }
+    
+    // Expanded detection based on keywords and patterns
+    
+    // C# detection
+    if ((text.find("using ") != std::string::npos && text.find("namespace") != std::string::npos) ||
+        text.find("Console.WriteLine") != std::string::npos ||
+        text.find("public static void Main") != std::string::npos ||
+        text.find("string[]") != std::string::npos) {
+        return "C#";
+    }
+    
+    // Java detection
+    if (text.find("public class") != std::string::npos ||
+        text.find("System.out.println") != std::string::npos ||
+        (text.find("import java.") != std::string::npos)) {
+        return "Java";
+    }
+    
+    // Python detection
+    if (text.find("def ") != std::string::npos || 
+        (text.find("import ") != std::string::npos && text.find(";") == std::string::npos) ||
+        text.find("print(") != std::string::npos ||
+        text.find("__init__") != std::string::npos) {
+        return "Python";
+    }
+    
+    // JavaScript/TypeScript detection
+    if ((text.find("function") != std::string::npos && text.find("=>") != std::string::npos) ||
+        text.find("const ") != std::string::npos ||
+        text.find("let ") != std::string::npos ||
+        text.find("console.log") != std::string::npos) {
+        return "JavaScript";
+    }
+    
+    // Rust detection
+    if ((text.find("fn ") != std::string::npos && text.find("->") != std::string::npos) ||
+        text.find("println!") != std::string::npos ||
+        text.find("use ") != std::string::npos && text.find("::") != std::string::npos) {
+        return "Rust";
+    }
+    
+    // C++ detection
+    if (text.find("#include") != std::string::npos ||
+        text.find("std::") != std::string::npos ||
+        text.find("cout") != std::string::npos) {
+        return "C++";
+    }
+    
+    // C detection
+    if (text.find("printf") != std::string::npos ||
+        (text.find("#include <stdio.h>") != std::string::npos)) {
+        return "C";
+    }
+    
+    // Go detection
+    if (text.find("package main") != std::string::npos ||
+        text.find("func ") != std::string::npos ||
+        text.find("fmt.Println") != std::string::npos) {
+        return "Go";
+    }
+    
+    // PHP detection
+    if (text.find("<?php") != std::string::npos ||
+        text.find("echo ") != std::string::npos ||
+        text.find("$_") != std::string::npos) {
+        return "PHP";
+    }
+    
+    // Ruby detection
+    if (text.find("puts ") != std::string::npos ||
+        text.find("def ") != std::string::npos && text.find("end") != std::string::npos) {
+        return "Ruby";
+    }
+    
+    return "Code";
+}

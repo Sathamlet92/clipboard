@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using AvaloniaEdit;
 using AvaloniaEdit.TextMate;
@@ -8,86 +9,121 @@ namespace ClipboardManager.App.Controls;
 
 public partial class CodePreviewControl : UserControl
 {
+    public static readonly StyledProperty<string> CodeProperty =
+        AvaloniaProperty.Register<CodePreviewControl, string>(nameof(Code), string.Empty);
+
+    public static readonly StyledProperty<string> LanguageProperty =
+        AvaloniaProperty.Register<CodePreviewControl, string>(nameof(Language), string.Empty);
+
+    private TextMate.Installation? _textMateInstallation;
     private RegistryOptions? _registryOptions;
+
+    public string Code
+    {
+        get => GetValue(CodeProperty);
+        set => SetValue(CodeProperty, value);
+    }
+
+    public string Language
+    {
+        get => GetValue(LanguageProperty);
+        set => SetValue(LanguageProperty, value);
+    }
 
     public CodePreviewControl()
     {
         InitializeComponent();
-        InitializeTextMate();
     }
 
-    private void InitializeTextMate()
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        try
+        base.OnPropertyChanged(change);
+
+        if (change.Property == CodeProperty || change.Property == LanguageProperty)
         {
-            // Inicializar TextMate con tema dark
-            _registryOptions = new RegistryOptions(ThemeName.DarkPlus);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Error inicializando TextMate: {ex.Message}");
+            UpdateCode();
         }
     }
 
-    public void SetCode(string code, string language)
+    private void UpdateCode()
     {
         if (CodeEditor == null)
         {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdateCode(), Avalonia.Threading.DispatcherPriority.Loaded);
             return;
         }
-
-        try
+        
+        // Actualizar texto
+        CodeEditor.Text = Code ?? string.Empty;
+        
+        // Configurar TextMate si no está inicializado
+        if (_textMateInstallation == null && !string.IsNullOrEmpty(Code))
         {
-            // Establecer el texto
-            CodeEditor.Text = code;
-
-            // Si tenemos TextMate, aplicar highlighting
-            if (_registryOptions != null)
+            try
             {
-                var scopeName = MapLanguageToScope(language);
-                
-                if (!string.IsNullOrEmpty(scopeName))
-                {
-                    var installation = CodeEditor.InstallTextMate(_registryOptions);
-                    installation.SetGrammar(scopeName);
-                    
-                    Console.WriteLine($"✅ Syntax highlighting aplicado: {language} -> {scopeName}");
-                }
+                _registryOptions = new RegistryOptions(ThemeName.DarkPlus);
+                _textMateInstallation = CodeEditor.InstallTextMate(_registryOptions);
+            }
+            catch
+            {
+                // Silently fail
             }
         }
-        catch (Exception ex)
+        
+        // Aplicar grammar según el lenguaje
+        if (_textMateInstallation != null && _registryOptions != null && !string.IsNullOrEmpty(Language))
         {
-            Console.WriteLine($"❌ Error aplicando syntax highlighting: {ex.Message}");
-            // Fallback: mostrar código sin highlighting
-            CodeEditor.Text = code;
+            try
+            {
+                var extension = GetFileExtension(Language);
+                var language = _registryOptions.GetLanguageByExtension(extension);
+                
+                if (language != null)
+                {
+                    var scopeName = _registryOptions.GetScopeByLanguageId(language.Id);
+                    _textMateInstallation.SetGrammar(scopeName);
+                }
+            }
+            catch
+            {
+                // Silently fail
+            }
         }
     }
 
-    private string MapLanguageToScope(string language)
+    private string GetFileExtension(string language)
     {
         return language.ToLowerInvariant() switch
         {
-            "c#" or "csharp" => "source.cs",
-            "python" => "source.python",
-            "javascript" or "js" => "source.js",
-            "typescript" or "ts" => "source.ts",
-            "java" => "source.java",
-            "c++" or "cpp" => "source.cpp",
-            "c" => "source.c",
-            "go" => "source.go",
-            "rust" => "source.rust",
-            "ruby" => "source.ruby",
-            "php" => "source.php",
-            "html" => "text.html.basic",
-            "css" => "source.css",
-            "json" => "source.json",
-            "xml" => "text.xml",
-            "yaml" or "yml" => "source.yaml",
-            "sql" => "source.sql",
-            "bash" or "shell" or "sh" => "source.shell",
-            "powershell" or "ps1" => "source.powershell",
-            "markdown" or "md" => "text.html.markdown",
-            _ => string.Empty
+            "csharp" or "c#" => ".cs",
+            "python" => ".py",
+            "javascript" or "js" => ".js",
+            "typescript" or "ts" => ".ts",
+            "java" => ".java",
+            "cpp" or "c++" => ".cpp",
+            "c" => ".c",
+            "rust" => ".rs",
+            "go" => ".go",
+            "kotlin" => ".kt",
+            "sql" => ".sql",
+            "html" => ".html",
+            "css" => ".css",
+            "json" => ".json",
+            "xml" => ".xml",
+            "bash" or "shell" => ".sh",
+            "php" => ".php",
+            "ruby" => ".rb",
+            "swift" => ".swift",
+            "powershell" => ".ps1",
+            "vb" or "visualbasic" => ".vb",
+            "perl" => ".pl",
+            "r" => ".r",
+            "scala" => ".scala",
+            "lua" => ".lua",
+            "dart" => ".dart",
+            "yaml" or "yml" => ".yaml",
+            "markdown" or "md" => ".md",
+            _ => ".txt"
         };
     }
 }

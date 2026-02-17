@@ -13,6 +13,28 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        
+        // Interceptar el cierre de ventana para solo ocultarla
+        Closing += OnWindowClosing;
+        
+        // Manejar tecla Escape para ocultar
+        KeyDown += OnWindowKeyDown;
+    }
+    
+    private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        // Cancelar el cierre y solo ocultar la ventana
+        e.Cancel = true;
+        Hide();
+    }
+    
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Hide();
+            e.Handled = true;
+        }
     }
 
     private async void OnItemPressed(object? sender, PointerPressedEventArgs e)
@@ -47,6 +69,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SearchAsync();
+        }
+    }
+
     private async void OnCopyOcrTextClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.DataContext is ClipboardItemViewModel item)
@@ -73,6 +103,32 @@ public partial class MainWindow : Window
             if (DataContext is MainWindowViewModel viewModel)
             {
                 await viewModel.DeleteItemAsync(item);
+            }
+        }
+    }
+
+    private void OnOpenUrlClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is ClipboardItemViewModel item)
+        {
+            if (!string.IsNullOrEmpty(item.Url))
+            {
+                try
+                {
+                    var process = new System.Diagnostics.Process
+                    {
+                        StartInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = item.Url,
+                            UseShellExecute = true
+                        }
+                    };
+                    process.Start();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Error abriendo URL: {ex.Message}");
+                }
             }
         }
     }

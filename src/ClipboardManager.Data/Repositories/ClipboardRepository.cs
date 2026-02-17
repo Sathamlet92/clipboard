@@ -135,6 +135,28 @@ public class ClipboardRepository : IClipboardRepository
                 item.CodeLanguage
             });
 
+            if (affected > 0)
+            {
+                // Actualizar FTS
+                var content = item.ContentType == ClipboardType.Image ? "" : 
+                             System.Text.Encoding.UTF8.GetString(item.Content);
+                
+                const string ftsDeleteSql = "DELETE FROM clipboard_fts WHERE rowid = @Id";
+                const string ftsInsertSql = @"
+                    INSERT INTO clipboard_fts(rowid, content, ocr_text, code_language, source_app)
+                    VALUES (@Id, @Content, @OcrText, @CodeLanguage, @SourceApp)";
+                
+                await connection.ExecuteAsync(ftsDeleteSql, new { item.Id });
+                await connection.ExecuteAsync(ftsInsertSql, new
+                {
+                    item.Id,
+                    Content = content,
+                    OcrText = item.OcrText ?? "",
+                    CodeLanguage = item.CodeLanguage ?? "",
+                    SourceApp = item.SourceApp ?? ""
+                });
+            }
+
             return affected > 0;
         }
         finally
@@ -192,14 +214,34 @@ public class ClipboardRepository : IClipboardRepository
             
             if (affected > 0)
             {
-                // Actualizar FTS manualmente - DELETE + INSERT porque FTS5 no soporta UPSERT
-                const string ftsDeleteSql = "DELETE FROM clipboard_fts WHERE rowid = @Id";
-                const string ftsInsertSql = @"
-                    INSERT INTO clipboard_fts(rowid, content, ocr_text, source_app)
-                    VALUES (@Id, '', @OcrText, '')";
+                // Obtener el item completo para actualizar FTS correctamente
+                const string getItemSql = @"
+                    SELECT content, content_type, code_language, source_app
+                    FROM clipboard_items
+                    WHERE id = @Id";
                 
-                await connection.ExecuteAsync(ftsDeleteSql, new { Id = id });
-                await connection.ExecuteAsync(ftsInsertSql, new { Id = id, OcrText = ocrText });
+                var item = await connection.QuerySingleOrDefaultAsync(getItemSql, new { Id = id });
+                if (item != null)
+                {
+                    var content = item.content_type == "Image" ? "" : 
+                                 System.Text.Encoding.UTF8.GetString((byte[])item.content);
+                    
+                    // Actualizar FTS - DELETE + INSERT
+                    const string ftsDeleteSql = "DELETE FROM clipboard_fts WHERE rowid = @Id";
+                    const string ftsInsertSql = @"
+                        INSERT INTO clipboard_fts(rowid, content, ocr_text, code_language, source_app)
+                        VALUES (@Id, @Content, @OcrText, @CodeLanguage, @SourceApp)";
+                    
+                    await connection.ExecuteAsync(ftsDeleteSql, new { Id = id });
+                    await connection.ExecuteAsync(ftsInsertSql, new
+                    {
+                        Id = id,
+                        Content = content,
+                        OcrText = ocrText,
+                        CodeLanguage = item.code_language ?? "",
+                        SourceApp = item.source_app ?? ""
+                    });
+                }
             }
             
             return affected > 0;
@@ -213,8 +255,8 @@ public class ClipboardRepository : IClipboardRepository
     private async Task UpdateFtsAsync(SqliteConnection connection, long id, ClipboardItem item)
     {
         const string sql = @"
-            INSERT INTO clipboard_fts(rowid, content, ocr_text, source_app)
-            VALUES (@Id, @Content, @OcrText, @SourceApp)";
+            INSERT INTO clipboard_fts(rowid, content, ocr_text, code_language, source_app)
+            VALUES (@Id, @Content, @OcrText, @CodeLanguage, @SourceApp)";
         
         var content = item.ContentType == ClipboardType.Image ? "" : 
                      System.Text.Encoding.UTF8.GetString(item.Content);
@@ -224,6 +266,7 @@ public class ClipboardRepository : IClipboardRepository
             Id = id,
             Content = content,
             OcrText = item.OcrText ?? "",
+            CodeLanguage = item.CodeLanguage ?? "",
             SourceApp = item.SourceApp ?? ""
         });
     }

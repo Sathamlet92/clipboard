@@ -1,4 +1,5 @@
 /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/clipboard-daemon.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/uninstall.dir
 /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/edit_cache.dir
 /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/rebuild_cache.dir
 /home/sathamlet/Documents/projects/clipboard-smart-manager/daemon/build/CMakeFiles/list_install_components.dir

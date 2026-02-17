@@ -24,6 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_source_app ON clipboard_items(source_app);
 CREATE VIRTUAL TABLE IF NOT EXISTS clipboard_fts USING fts5(
     content,
     ocr_text,
+    code_language,
     source_app,
     tokenize='porter unicode61'
 );

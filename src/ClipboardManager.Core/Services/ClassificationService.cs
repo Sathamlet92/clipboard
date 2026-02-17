@@ -377,9 +377,14 @@ public class ClassificationService
     {
         text = text.Trim();
         
-        // Muy corto para ser código (pero permitir snippets simples como print())
-        if (text.Length < 5)
+        Console.WriteLine($"🔍 IsCode evaluando texto ({text.Length} chars): {text.Substring(0, Math.Min(100, text.Length))}...");
+        
+        // Muy corto para ser código
+        if (text.Length < 10)
+        {
+            Console.WriteLine("   ❌ Muy corto (<10 chars)");
             return false;
+        }
         
         // Texto natural largo probablemente no es código
         if (text.Length > 100 && !text.Contains('\n'))
@@ -388,7 +393,10 @@ public class ClassificationService
             var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var naturalWords = words.Count(w => w.Length > 3 && !w.Contains('(') && !w.Contains('{'));
             if (naturalWords > words.Length * 0.7)
+            {
+                Console.WriteLine($"   ❌ Muchas palabras naturales: {naturalWords}/{words.Length}");
                 return false;
+            }
         }
 
         var codeIndicators = 0;
@@ -410,26 +418,34 @@ public class ClassificationService
             text.Contains(kw, StringComparison.OrdinalIgnoreCase));
         
         if (hasStrongKeywords)
-            codeIndicators += 4; // Peso MUY alto
+        {
+            codeIndicators += 5; // Peso MUY alto
+            Console.WriteLine("   ✅ +5 Tiene palabras clave fuertes");
+        }
         
         // 2. Tiene funciones con paréntesis: function(), print(), etc.
         var functionCalls = Regex.Matches(text, @"\w+\s*\([^\)]*\)").Count;
-        if (functionCalls >= 1) // Relajado de 2 a 1
+        if (functionCalls >= 2)
+        {
             codeIndicators += 3;
+            Console.WriteLine($"   ✅ +3 Tiene {functionCalls} llamadas a función");
+        }
         
         // 3. Tiene llaves o corchetes balanceados Y múltiples
         var braceCount = text.Count(c => c == '{');
         if (braceCount >= 2 && text.Count(c => c == '}') >= 2)
-            codeIndicators += 2;
-        else if (braceCount >= 1 && text.Count(c => c == '}') >= 1)
-            codeIndicators += 1; // Al menos una llave
+        {
+            codeIndicators += 3;
+            Console.WriteLine($"   ✅ +3 Tiene {braceCount} pares de llaves");
+        }
 
         // 4. Tiene punto y coma al final de líneas (múltiples)
         var semicolons = Regex.Matches(text, @";\s*$", RegexOptions.Multiline).Count;
         if (semicolons >= 2)
+        {
             codeIndicators += 2;
-        else if (semicolons >= 1)
-            codeIndicators += 1;
+            Console.WriteLine($"   ✅ +2 Tiene {semicolons} punto y coma al final de línea");
+        }
 
         // 5. Tiene indentación consistente (múltiples líneas indentadas)
         var lines = text.Split('\n');
@@ -437,44 +453,59 @@ public class ClassificationService
         {
             var indentedLines = lines.Count(l => l.StartsWith("    ") || l.StartsWith("\t"));
             if (indentedLines >= 3)
+            {
                 codeIndicators += 2;
+                Console.WriteLine($"   ✅ +2 Tiene {indentedLines} líneas indentadas");
+            }
         }
         
         // 6. Tiene operadores de programación múltiples
         var operators = Regex.Matches(text, @"[=<>!]+|&&|\|\||->|=>|\+=|-=|\*=|/=").Count;
         if (operators >= 3)
+        {
             codeIndicators += 2;
-        else if (operators >= 1)
-            codeIndicators += 1;
+            Console.WriteLine($"   ✅ +2 Tiene {operators} operadores");
+        }
 
         // INDICADORES NEGATIVOS (NO es código)
         
         // 1. Tiene muchas palabras naturales seguidas (5+)
         if (Regex.IsMatch(text, @"(\b[a-záéíóúñA-ZÁÉÍÓÚÑ]{4,}\b\s+){5,}"))
-            antiCodeIndicators += 3;
+        {
+            antiCodeIndicators += 4;
+            Console.WriteLine("   ❌ +4 anti: Muchas palabras naturales seguidas");
+        }
         
         // 2. Tiene puntuación de texto natural abundante
         var naturalPunctuation = text.Count(c => c == '.' || c == ',' || c == '?' || c == '!');
         if (naturalPunctuation > text.Length * 0.05)
-            antiCodeIndicators += 2;
+        {
+            antiCodeIndicators += 3;
+            Console.WriteLine($"   ❌ +3 anti: Mucha puntuación natural ({naturalPunctuation})");
+        }
         
         // 3. Empieza con mayúscula y tiene estructura de oración
         if (char.IsUpper(text[0]) && (text.EndsWith('.') || text.EndsWith(':')) && !text.Contains('('))
-            antiCodeIndicators += 2;
+        {
+            antiCodeIndicators += 3;
+            Console.WriteLine("   ❌ +3 anti: Estructura de oración");
+        }
         
         // 4. Tiene palabras comunes de texto natural
         var commonWords = new[] { " para ", " con ", " que ", " the ", " and ", " for ", " with ", " is a ", " to " };
         var commonWordCount = commonWords.Count(w => text.Contains(w, StringComparison.OrdinalIgnoreCase));
         if (commonWordCount >= 3)
-            antiCodeIndicators += 2;
+        {
+            antiCodeIndicators += 3;
+            Console.WriteLine($"   ❌ +3 anti: {commonWordCount} palabras comunes de texto");
+        }
 
-        // DECISIÓN FINAL - Relajado para snippets cortos
-        // Para texto corto (<50 chars), solo necesitamos 2 indicadores
-        if (text.Length < 50)
-            return codeIndicators >= 2 && codeIndicators > antiCodeIndicators;
+        // DECISIÓN FINAL - MÁS ESTRICTO
+        // Necesitamos evidencia FUERTE de código (6+ indicadores) Y superar anti-indicadores
+        var isCode = codeIndicators >= 6 && codeIndicators > antiCodeIndicators * 2;
+        Console.WriteLine($"   📊 RESULTADO: codeIndicators={codeIndicators}, antiCodeIndicators={antiCodeIndicators}, isCode={isCode}");
         
-        // Para texto más largo, necesitamos 4 indicadores
-        return codeIndicators >= 4 && codeIndicators > antiCodeIndicators * 1.5;
+        return isCode;
     }
 
     private static bool IsRichText(string text, string? mimeType)

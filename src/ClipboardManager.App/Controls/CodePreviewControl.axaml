@@ -10,17 +10,23 @@
             BorderBrush="#3E3E42" 
             BorderThickness="1" 
             CornerRadius="4"
-            Padding="8">
-        <AvaloniaEdit:TextEditor x:Name="CodeEditor"
-                                 Background="Transparent"
-                                 Foreground="#D4D4D4"
-                                 FontFamily="Cascadia Code,Consolas,Courier New,monospace"
-                                 FontSize="13"
-                                 IsReadOnly="True"
-                                 ShowLineNumbers="True"
-                                 WordWrap="False"
-                                 HorizontalScrollBarVisibility="Auto"
-                                 VerticalScrollBarVisibility="Auto" />
+            Padding="8"
+            MaxWidth="750"
+            MaxHeight="400"
+            HorizontalAlignment="Stretch">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+            <AvaloniaEdit:TextEditor x:Name="CodeEditor"
+                                     Background="Transparent"
+                                     Foreground="#D4D4D4"
+                                     FontFamily="Cascadia Code,Consolas,Courier New,monospace"
+                                     FontSize="13"
+                                     IsReadOnly="True"
+                                     ShowLineNumbers="False"
+                                     WordWrap="False"
+                                     HorizontalScrollBarVisibility="Disabled"
+                                     VerticalScrollBarVisibility="Disabled"/>
+        </ScrollViewer>
     </Border>
     
 </UserControl>

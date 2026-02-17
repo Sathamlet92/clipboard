@@ -114,7 +114,14 @@
 
 ## 🐛 Bugs Conocidos
 
-- Ninguno reportado actualmente
+### 1. Modelo ML no detecta SQL, JSON, XML
+- **Problema**: El modelo actual (philomath-1209/programming-language-identification) solo soporta 26 lenguajes y no incluye SQL, JSON, XML, YAML
+- **Impacto**: Estos lenguajes muy comunes no se detectan correctamente
+- **Solución propuesta**: 
+  - Opción 1: Entrenar modelo custom con dataset que incluya SQL, JSON, XML, YAML, TOML, etc.
+  - Opción 2: Usar modelo pre-entrenado más completo (buscar en HuggingFace)
+  - Opción 3: Fine-tune el modelo actual con ejemplos adicionales
+- **Prioridad**: ALTA (afecta experiencia de usuario)
 
 ## 📊 Estadísticas
 

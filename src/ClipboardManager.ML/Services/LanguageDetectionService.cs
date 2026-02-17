@@ -154,9 +154,12 @@ public class LanguageDetectionService : IDisposable
             Console.WriteLine($"   Top 3: {string.Join(", ", topScores.Select(x => $"{x.Label}={x.Score:F2}"))}");
             
             // UMBRAL DE CONFIANZA: Si el score es muy bajo, no es código válido
-            // Scores típicos de código real: 6.0-8.0
-            // Scores típicos de texto/basura: 2.0-4.0
-            if (maxValue < 4.5f)
+            // Basado en observaciones reales:
+            // - Código Python real: 5.27, 4.89
+            // - Texto "AvaloniaEdit": 4.68
+            // - Código Java en imagen: scores más altos
+            // Umbral: 5.11 (balance entre falsos positivos y negativos)
+            if (maxValue < 5.11f)
             {
                 Console.WriteLine($"   ⚠️  Score muy bajo ({maxValue:F2}), probablemente no es código");
                 return null; // Reclasificar como texto

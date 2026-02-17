@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using ClipboardManager.Core.Interfaces;
+using ClipboardManager.Core.Models;
 using ClipboardManager.ML.Services;
 
 namespace ClipboardManager.Core.Services;
@@ -12,18 +13,25 @@ public class OcrQueueService : IDisposable
     private readonly ConcurrentQueue<OcrTask> _queue;
     private readonly TesseractOcrService _ocrService;
     private readonly IClipboardRepository _repository;
+    private readonly LanguageDetectionService? _languageDetector;
     private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly Task _processingTask;
     private bool _disposed;
 
     public event EventHandler<OcrCompletedEventArgs>? OcrCompleted;
 
-    public OcrQueueService(TesseractOcrService ocrService, IClipboardRepository repository)
+    public OcrQueueService(
+        TesseractOcrService ocrService,
+        IClipboardRepository repository,
+        LanguageDetectionService? languageDetector = null)
     {
         _queue = new ConcurrentQueue<OcrTask>();
         _ocrService = ocrService;
         _repository = repository;
+        _languageDetector = languageDetector;
         _cancellationTokenSource = new CancellationTokenSource();
+        
+        Console.WriteLine("✅ Usando Tesseract como motor OCR");
         
         // Iniciar procesamiento en background
         _processingTask = Task.Run(ProcessQueueAsync);
@@ -76,19 +84,42 @@ public class OcrQueueService : IDisposable
             var startTime = DateTime.UtcNow;
             Console.WriteLine($"🔄 Procesando OCR para item {task.ItemId}...");
             
-            // Extraer texto de la imagen
+            // Extraer texto con Tesseract
             var ocrText = await _ocrService.ExtractTextAsync(task.ImageData);
             
             if (!string.IsNullOrWhiteSpace(ocrText))
             {
-                // Actualizar en la base de datos
+                // Actualizar OCR en la base de datos
                 await _repository.UpdateOcrTextAsync(task.ItemId, ocrText);
                 
                 var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
                 Console.WriteLine($"✅ OCR completado para item {task.ItemId} en {elapsed:F0}ms: {ocrText.Substring(0, Math.Min(50, ocrText.Length))}...");
                 
-                // Notificar que el OCR se completó
-                OcrCompleted?.Invoke(this, new OcrCompletedEventArgs(task.ItemId, ocrText));
+                // Detectar si el texto OCR es código
+                string? detectedLanguage = null;
+                bool isCode = false;
+                
+                if (_languageDetector?.IsAvailable == true)
+                {
+                    detectedLanguage = await _languageDetector.DetectLanguageAsync(ocrText);
+                    isCode = !string.IsNullOrEmpty(detectedLanguage);
+                    
+                    if (isCode)
+                    {
+                        // Es código! Actualizar el item
+                        var item = await _repository.GetByIdAsync(task.ItemId);
+                        if (item != null)
+                        {
+                            item.ContentType = ClipboardType.Code;
+                            item.CodeLanguage = detectedLanguage;
+                            await _repository.UpdateAsync(item);
+                            Console.WriteLine($"🔍 OCR detectó código {detectedLanguage} en imagen {task.ItemId}");
+                        }
+                    }
+                }
+                
+                // Notificar que el OCR se completó (con info de código si aplica)
+                OcrCompleted?.Invoke(this, new OcrCompletedEventArgs(task.ItemId, ocrText, isCode, detectedLanguage));
             }
             else
             {
@@ -134,10 +165,14 @@ public class OcrCompletedEventArgs : EventArgs
 {
     public long ItemId { get; }
     public string OcrText { get; }
+    public bool IsCode { get; }
+    public string? CodeLanguage { get; }
 
-    public OcrCompletedEventArgs(long itemId, string ocrText)
+    public OcrCompletedEventArgs(long itemId, string ocrText, bool isCode = false, string? codeLanguage = null)
     {
         ItemId = itemId;
         OcrText = ocrText;
+        IsCode = isCode;
+        CodeLanguage = codeLanguage;
     }
 }

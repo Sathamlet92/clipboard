@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -30,6 +31,7 @@ public partial class App : Application
     private bool _ignoreNextClipboardChange = false;
     private ClipboardManager.ML.Services.EmbeddingService? _embeddingService;
     private ClipboardManager.ML.Services.LanguageDetectionService? _languageDetector;
+    private ThemeService? _themeService;
 
     public override void Initialize()
     {
@@ -69,6 +71,15 @@ public partial class App : Application
                 DataContext = viewModel
             };
             
+            // Aplicar tema a la ventana
+            if (_themeService != null)
+            {
+                var theme = _themeService.CurrentTheme;
+                _mainWindow.Width = theme.Window.Width;
+                _mainWindow.Height = theme.Window.Height;
+                _mainWindow.Opacity = theme.Window.Opacity;
+            }
+            
             desktop.MainWindow = _mainWindow;
             
             // Configurar hotkey service
@@ -85,8 +96,22 @@ public partial class App : Application
                 {
                     _mainWindow.Show();
                     _mainWindow.Activate();
+                    _mainWindow.Focus();
                 }
             };
+            
+            // Crear archivo de lock para instancia única
+            var lockFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".clipboard-manager",
+                "app.lock"
+            );
+            
+            try
+            {
+                File.WriteAllText(lockFile, Process.GetCurrentProcess().Id.ToString());
+            }
+            catch { }
             
             // Iniciar daemon client
             _ = StartDaemonClientAsync(viewModel);
@@ -99,6 +124,10 @@ public partial class App : Application
 
     private void InitializeServices(ClipboardDbContextFactory dbFactory)
     {
+        // Cargar tema
+        _themeService = new ThemeService();
+        var theme = _themeService.LoadTheme();
+        
         // Configuración
         var config = new AppConfiguration
         {
@@ -119,7 +148,7 @@ public partial class App : Application
         // Repositorio con factory
         var clipboardRepo = new ClipboardRepository(dbFactory);
         
-        // Embedding Service (ML) - inicializar primero
+        // Embedding Service (ML) - carga en background sin bloquear
         var mlModelsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".clipboard-manager",
@@ -128,7 +157,7 @@ public partial class App : Application
         );
         _embeddingService = new ClipboardManager.ML.Services.EmbeddingService(mlModelsPath);
         
-        // Language Detection Service (ML) - usa modelo CodeBERTa
+        // Language Detection Service (ML) - carga en background sin bloquear
         var langModelsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".clipboard-manager",
@@ -137,9 +166,42 @@ public partial class App : Application
         );
         _languageDetector = new ClipboardManager.ML.Services.LanguageDetectionService(langModelsPath);
         
-        // Code Classifier Service (ML) - usa embeddings
+        // Cargar modelos en background después de iniciar la UI
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                Console.WriteLine("🔄 Cargando modelos ML en background...");
+                // Forzar carga de modelos
+                if (_embeddingService?.IsAvailable == true)
+                {
+                    Console.WriteLine("✅ Embedding service disponible");
+                }
+                if (_languageDetector != null)
+                {
+                    Console.WriteLine("✅ Language detector disponible");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  Error cargando modelos ML: {ex.Message}");
+            }
+        });
+        
+        // Code Classifier Service (ML) - inicializar en background sin bloquear
         var codeClassifier = new ClipboardManager.ML.Services.CodeClassifierService(_embeddingService);
-        _ = Task.Run(async () => await codeClassifier.InitializeAsync()); // Inicializar en background
+        _ = Task.Run(async () => 
+        {
+            try
+            {
+                await codeClassifier.InitializeAsync();
+                Console.WriteLine("✅ Code classifier inicializado");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️  Code classifier no disponible: {ex.Message}");
+            }
+        });
 
         // Servicios - pasar code classifier y language detector
         var classificationService = new CoreClassificationService(codeClassifier, _languageDetector);
@@ -152,8 +214,8 @@ public partial class App : Application
             "models",
             "tessdata"
         );
-        var ocrService = new ClipboardManager.ML.Services.TesseractOcrService(modelsPath);
-        var ocrQueueService = new OcrQueueService(ocrService, clipboardRepo);
+        var ocrService = new ClipboardManager.ML.Services.TesseractOcrService(modelsPath, _languageDetector);
+        var ocrQueueService = new OcrQueueService(ocrService, clipboardRepo, _languageDetector);
         
         // Suscribirse al evento de OCR completado
         ocrQueueService.OcrCompleted += OnOcrCompleted;
@@ -173,11 +235,21 @@ public partial class App : Application
     private void OnOcrCompleted(object? sender, OcrCompletedEventArgs e)
     {
         // Actualizar UI en el thread de UI
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (_mainWindow?.DataContext is MainWindowViewModel viewModel)
             {
-                viewModel.UpdateOcrText(e.ItemId, e.OcrText);
+                // Si se detectó código, UpdateLanguageAsync traerá el item completo de la DB
+                // incluyendo el OcrText, ContentType y CodeLanguage actualizados
+                if (e.IsCode && !string.IsNullOrEmpty(e.CodeLanguage))
+                {
+                    await viewModel.UpdateLanguageAsync(e.ItemId, e.CodeLanguage);
+                }
+                else
+                {
+                    // Solo texto OCR sin código detectado
+                    viewModel.UpdateOcrText(e.ItemId, e.OcrText);
+                }
             }
         });
     }
@@ -185,11 +257,11 @@ public partial class App : Application
     private void OnLanguageDetected(object? sender, Core.Services.LanguageDetectedEventArgs e)
     {
         // Actualizar UI en el thread de UI
-        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (_mainWindow?.DataContext is MainWindowViewModel viewModel)
             {
-                viewModel.UpdateLanguage(e.ItemId, e.Language);
+                await viewModel.UpdateLanguageAsync(e.ItemId, e.Language);
             }
         });
     }
@@ -215,17 +287,13 @@ public partial class App : Application
                     Console.WriteLine($"📋 Clipboard event: Type={evt.ContentType}, MimeType={evt.MimeType}, Size={evt.Data.Length} bytes");
                     
                     // Procesar evento de clipboard
-                    await _clipboardService!.ProcessClipboardEventAsync(evt);
+                    var item = await _clipboardService!.ProcessClipboardEventAsync(evt);
                     
                     // Actualizar UI (en el thread de UI)
-                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        var item = await _clipboardService.GetRecentItemsAsync(1);
-                        if (item.Count > 0)
-                        {
-                            Console.WriteLine($"✅ Item agregado: Type={item[0].ContentType}, IsImage={item[0].IsImage}");
-                            viewModel.AddItem(item[0]);
-                        }
+                        Console.WriteLine($"✅ Item agregado: Type={item.ContentType}, IsImage={item.IsImage}");
+                        viewModel.AddItem(item);
                     });
                 }
                 catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))

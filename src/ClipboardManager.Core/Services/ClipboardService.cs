@@ -66,11 +66,13 @@ public class ClipboardService
         
         // 1. Clasificar contenido (SIMPLIFICADO - todo texto inicialmente)
         var contentType = _classificationService.Classify(data, mimeType);
+        Console.WriteLine($"🔍 Clasificación inicial: {contentType}");
         
         // Forzar a Text si no es imagen - ML decidirá si es código
         if (contentType != ClipboardType.Image)
         {
             contentType = ClipboardType.Text;
+            Console.WriteLine($"🔄 Forzado a Text (ML decidirá si es código)");
         }
 
         // 2. Detectar si es password
@@ -136,9 +138,12 @@ public class ClipboardService
             Metadata = JsonSerializer.Serialize(metadata),
             CodeLanguage = codeLanguage
         };
+        
+        Console.WriteLine($"💾 Item creado: Type={item.ContentType}, IsPassword={isPassword}, CodeLanguage={codeLanguage}");
 
         // 9. Guardar en DB
         item.Id = await _repository.AddAsync(item);
+        Console.WriteLine($"✅ Item guardado en DB con ID={item.Id}, Type={item.ContentType}");
 
         // 10. Detectar lenguaje con ML en BACKGROUND (analiza TODO el texto)
         if (textContent != null && contentType == ClipboardType.Text)
@@ -152,18 +157,22 @@ public class ClipboardService
                     var detectedLanguage = _classificationService.DetectCodeLanguage(text);
                     if (!string.IsNullOrEmpty(detectedLanguage))
                     {
-                        // ML detectó código con confianza alta
-                        item.ContentType = ClipboardType.Code;
-                        item.CodeLanguage = detectedLanguage;
-                        await _repository.UpdateAsync(item);
-                        Console.WriteLine($"✅ ML detectó código {detectedLanguage} para item {itemId}");
-                        
-                        // Notificar evento
-                        LanguageDetected?.Invoke(this, new LanguageDetectedEventArgs
+                        // ML detectó código con confianza alta - obtener item fresco de DB
+                        var freshItem = await _repository.GetByIdAsync(itemId);
+                        if (freshItem != null)
                         {
-                            ItemId = itemId,
-                            Language = detectedLanguage
-                        });
+                            freshItem.ContentType = ClipboardType.Code;
+                            freshItem.CodeLanguage = detectedLanguage;
+                            await _repository.UpdateAsync(freshItem);
+                            Console.WriteLine($"✅ Lenguaje detectado para item {itemId}: {detectedLanguage}");
+                            
+                            // Notificar evento
+                            LanguageDetected?.Invoke(this, new LanguageDetectedEventArgs
+                            {
+                                ItemId = itemId,
+                                Language = detectedLanguage
+                            });
+                        }
                     }
                     // Si retorna null, se queda como Text (correcto)
                 }

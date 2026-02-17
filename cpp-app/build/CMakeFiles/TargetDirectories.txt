@@ -1,0 +1,8 @@
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/clipboard-manager.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/uninstall.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/edit_cache.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/rebuild_cache.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/list_install_components.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/install.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/install/local.dir
+/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build/CMakeFiles/install/strip.dir

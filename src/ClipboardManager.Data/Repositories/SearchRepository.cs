@@ -18,7 +18,7 @@ public class SearchRepository
             SELECT 
                 ci.id, ci.content, ci.content_type, ci.ocr_text, ci.embedding, 
                 ci.source_app, ci.timestamp, ci.is_password, ci.is_encrypted, 
-                ci.metadata, ci.thumbnail,
+                ci.metadata, ci.thumbnail, ci.code_language,
                 fts.rank as score
             FROM clipboard_fts fts
             INNER JOIN clipboard_items ci ON fts.rowid = ci.id
@@ -48,7 +48,7 @@ public class SearchRepository
     {
         const string sql = @"
             SELECT id, content, content_type, ocr_text, embedding, source_app, 
-                   timestamp, is_password, is_encrypted, metadata, thumbnail
+                   timestamp, is_password, is_encrypted, metadata, thumbnail, code_language
             FROM clipboard_items
             WHERE embedding IS NOT NULL
             ORDER BY timestamp DESC";
@@ -157,11 +157,11 @@ public class SearchRepository
     {
         const string sql = @"
             SELECT id, content, content_type, ocr_text, embedding, source_app, 
-                   timestamp, is_password, is_encrypted, metadata, thumbnail
+                   timestamp, is_password, is_encrypted, metadata, thumbnail, code_language
             FROM clipboard_items
             WHERE embedding IS NOT NULL
             ORDER BY timestamp DESC
-            LIMIT 500";
+            LIMIT 100";  // Reducido de 200 a 100 para mejor performance
 
         var connection = await _factory.GetConnectionAsync();
         try
@@ -169,26 +169,21 @@ public class SearchRepository
             var rows = await connection.QueryAsync(sql);
             var items = rows.Select(MapToClipboardItem).ToList();
             
-            // Calcular similitud coseno con cada item
-            var results = new List<SearchResult>();
-            foreach (var item in items)
-            {
-                if (item.Embedding == null) continue;
-                
-                var similarity = CosineSimilarity(queryEmbedding, item.Embedding);
-                results.Add(new SearchResult
+            // Calcular similitud coseno en paralelo
+            var results = items
+                .AsParallel()
+                .Where(item => item.Embedding != null)
+                .Select(item => new SearchResult
                 {
                     Item = item,
-                    Score = similarity,
+                    Score = CosineSimilarity(queryEmbedding, item.Embedding!),
                     ResultType = SearchResultType.SemanticMatch
-                });
-            }
-            
-            // Ordenar por similitud y tomar top N
-            return results
+                })
                 .OrderByDescending(r => r.Score)
                 .Take(limit)
                 .ToList();
+            
+            return results;
         }
         finally
         {
@@ -200,15 +195,18 @@ public class SearchRepository
         string textQuery, 
         float[] queryEmbedding, 
         int limit = 20,
-        float textWeight = 0.3f,
-        float semanticWeight = 0.7f,
+        float textWeight = 0.7f,  // Priorizar coincidencias exactas
+        float semanticWeight = 0.3f,
         bool excludeCode = false)
     {
-        // Búsqueda FTS5
-        var textResults = await FullTextSearchAsync(textQuery, limit * 2);
+        // Ejecutar búsquedas en paralelo para mejor performance
+        var textTask = FullTextSearchAsync(textQuery, limit * 2);
+        var semanticTask = SemanticSearchAsync(queryEmbedding, limit * 2);
         
-        // Búsqueda semántica
-        var semanticResults = await SemanticSearchAsync(queryEmbedding, limit * 2);
+        await Task.WhenAll(textTask, semanticTask);
+        
+        var textResults = await textTask;
+        var semanticResults = await semanticTask;
         
         // Filtrar código si se solicita
         if (excludeCode)
@@ -221,61 +219,49 @@ public class SearchRepository
                 .ToList();
         }
         
-        // Combinar resultados con pesos
-        var combinedScores = new Dictionary<long, (ClipboardItem Item, float Score, float TextScore, float SemanticScore)>();
+        // Combinar resultados: PRIORIZAR EXACTOS
+        var combinedScores = new Dictionary<long, (ClipboardItem Item, float Score, bool HasExactMatch)>();
         
+        // Procesar resultados de texto (exactos) - MAYOR PRIORIDAD
         foreach (var result in textResults)
         {
-            // FTS5 rank: valores negativos, más cercano a 0 = mejor match
-            // Invertir para que mayor score = mejor
-            var normalizedScore = Math.Abs(result.Score); // Convertir a positivo
-            normalizedScore = 1.0f / (1.0f + normalizedScore); // Normalizar: mejor match → 1.0, peor → 0.0
+            var normalizedScore = Math.Abs(result.Score);
+            normalizedScore = 1.0f / (1.0f + normalizedScore);
             var weightedScore = normalizedScore * textWeight;
-            combinedScores[result.Item.Id] = (result.Item, weightedScore, normalizedScore, 0f);
+            combinedScores[result.Item.Id] = (result.Item, weightedScore, true);
         }
         
+        // Procesar resultados semánticos - MENOR PRIORIDAD
         foreach (var result in semanticResults)
         {
-            var normalizedScore = result.Score; // Ya está entre 0-1
+            var normalizedScore = result.Score;
             var weightedScore = normalizedScore * semanticWeight;
+            
             if (combinedScores.ContainsKey(result.Item.Id))
             {
                 var existing = combinedScores[result.Item.Id];
                 combinedScores[result.Item.Id] = (
                     existing.Item, 
                     existing.Score + weightedScore,
-                    existing.TextScore,
-                    normalizedScore
+                    existing.HasExactMatch
                 );
             }
             else
             {
-                combinedScores[result.Item.Id] = (result.Item, weightedScore, 0f, normalizedScore);
+                combinedScores[result.Item.Id] = (result.Item, weightedScore, false);
             }
         }
         
-        // Ordenar por score combinado y mostrar top 5 con debug
-        var sortedResults = combinedScores.Values
-            .OrderByDescending(x => x.Score)
-            .ToList();
-        
-        // Debug: mostrar top 5 scores
-        Console.WriteLine($"🔍 Top 5 resultados híbridos para '{textQuery}':");
-        foreach (var result in sortedResults.Take(5))
-        {
-            var preview = System.Text.Encoding.UTF8.GetString(result.Item.Content);
-            preview = preview.Length > 30 ? preview.Substring(0, 30) + "..." : preview;
-            Console.WriteLine($"   Score: {result.Score:F3} (Text: {result.TextScore:F3}, Semantic: {result.SemanticScore:F3}) - {preview}");
-        }
-        
-        // Ordenar por score combinado
-        return sortedResults
+        // Ordenar: PRIMERO los que tienen match exacto, LUEGO por score
+        return combinedScores.Values
+            .OrderByDescending(x => x.HasExactMatch)
+            .ThenByDescending(x => x.Score)
             .Take(limit)
             .Select(x => new SearchResult
             {
                 Item = x.Item,
                 Score = x.Score,
-                ResultType = SearchResultType.HybridMatch
+                ResultType = x.HasExactMatch ? SearchResultType.TextMatch : SearchResultType.SemanticMatch
             })
             .ToList();
     }

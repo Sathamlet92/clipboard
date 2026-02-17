@@ -29,11 +29,74 @@ public class ClipboardItemViewModel
     public string? OcrText => _item.OcrText;
     
     // Propiedades para código
-    public bool IsCode => _item.ContentType == ClipboardType.Code;
+    public bool IsCode => _item.ContentType == ClipboardType.Code || 
+                         (_item.ContentType == ClipboardType.Image && !string.IsNullOrEmpty(_item.CodeLanguage));
     public string? CodeLanguage => _item.CodeLanguage;
-    public string? CodeContent => IsCode && _item.Content != null 
-        ? System.Text.Encoding.UTF8.GetString(_item.Content) 
-        : null;
+    public string? CodeContent
+    {
+        get
+        {
+            // Si tiene OcrText, significa que vino de una imagen con código detectado
+            if (!string.IsNullOrEmpty(_item.OcrText) && !string.IsNullOrEmpty(_item.CodeLanguage))
+            {
+                return _item.OcrText;
+            }
+            
+            // Si es Code normal (texto copiado directamente), mostrar el contenido
+            if (_item.ContentType == ClipboardType.Code && _item.Content != null && _item.Content.Length > 0)
+            {
+                try
+                {
+                    return System.Text.Encoding.UTF8.GetString(_item.Content);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            
+            return null;
+        }
+    }
+
+    // Propiedades para URLs
+    public bool IsUrl
+    {
+        get
+        {
+            if (_item.ContentType != ClipboardType.Text || _item.Content == null)
+                return false;
+
+            try
+            {
+                var text = System.Text.Encoding.UTF8.GetString(_item.Content).Trim();
+                return Uri.TryCreate(text, UriKind.Absolute, out var uri) &&
+                       (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    public string? Url
+    {
+        get
+        {
+            if (!IsUrl || _item.Content == null)
+                return null;
+
+            try
+            {
+                return System.Text.Encoding.UTF8.GetString(_item.Content).Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
 
     public Bitmap? ImageSource => _imageSource;
 

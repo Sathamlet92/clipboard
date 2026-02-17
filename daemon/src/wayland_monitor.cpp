@@ -346,7 +346,8 @@ void WaylandMonitor::data_device_primary_selection(
     [[maybe_unused]] zwlr_data_control_device_v1* device,
     [[maybe_unused]] zwlr_data_control_offer_v1* offer)
 {
-    // Primary selection (middle-click paste), ignore for now
+    // Primary selection (middle-click paste), ignore
+    // Solo queremos el clipboard normal (Ctrl+C / Ctrl+Shift+C)
 }
 
 void WaylandMonitor::data_offer_offer(

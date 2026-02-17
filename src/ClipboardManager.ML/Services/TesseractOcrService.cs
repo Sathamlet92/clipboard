@@ -7,12 +7,14 @@ namespace ClipboardManager.ML.Services;
 public class TesseractOcrService : IDisposable
 {
     private readonly string _tessDataPath;
+    private readonly LanguageDetectionService? _languageDetector;
     private bool _disposed;
     private bool _isAvailable;
 
-    public TesseractOcrService(string tessDataPath)
+    public TesseractOcrService(string tessDataPath, LanguageDetectionService? languageDetector = null)
     {
         _tessDataPath = tessDataPath;
+        _languageDetector = languageDetector;
         CheckAvailability();
     }
 
@@ -126,11 +128,18 @@ public class TesseractOcrService : IDisposable
             var text = await File.ReadAllTextAsync(outputFile);
             text = text.Trim();
             
-            // Post-procesamiento: limpiar artefactos comunes de iconos
-            if (!string.IsNullOrWhiteSpace(text))
+            // Usar ML para detectar si es código ANTES de limpiar
+            bool isCode = false;
+            if (_languageDetector?.IsAvailable == true && !string.IsNullOrWhiteSpace(text))
             {
-                // Eliminar caracteres comunes de iconos al inicio/final de líneas
-                // <, >, 4, 8, O (círculos), etc.
+                var language = await _languageDetector.DetectLanguageAsync(text);
+                isCode = !string.IsNullOrEmpty(language);
+            }
+            
+            // Solo limpiar si NO es código
+            if (!isCode && !string.IsNullOrWhiteSpace(text))
+            {
+                // Post-procesamiento: limpiar artefactos comunes de iconos
                 var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 var cleanedLines = new List<string>();
                 

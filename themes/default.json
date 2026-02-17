@@ -1,0 +1,36 @@
+{
+  "window": {
+    "width": 800,
+    "height": 600,
+    "cornerRadius": 8,
+    "borderThickness": 1,
+    "opacity": 1.0
+  },
+  "colors": {
+    "background": "#1E1E1E",
+    "backgroundAlt": "#252526",
+    "border": "#3E3E42",
+    "accent": "#007ACC",
+    "text": "#CCCCCC",
+    "textSecondary": "#858585",
+    "searchBar": "#2D2D30",
+    "itemHover": "#2A2D2E",
+    "codeBackground": "#1E1E1E",
+    "urlBackground": "#1E3A5F",
+    "urlText": "#4A90E2",
+    "ocrBackground": "#1E3A1E",
+    "ocrText": "#4EC9B0"
+  },
+  "fonts": {
+    "family": "Segoe UI,Arial,sans-serif",
+    "monoFamily": "Cascadia Code,Consolas,Courier New,monospace",
+    "size": 13,
+    "sizeSmall": 11,
+    "sizeLarge": 14
+  },
+  "spacing": {
+    "itemPadding": 10,
+    "itemMargin": 5,
+    "itemSpacing": 5
+  }
+}

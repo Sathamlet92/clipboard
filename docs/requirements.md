@@ -3,6 +3,17 @@
 ## Resumen del Proyecto
 Clipboard manager inteligente con historial infinito, OCR automático, búsqueda semántica y seguridad para passwords. Optimizado para Linux (X11/Wayland) con alto rendimiento.
 
+## Dependencias del Sistema (Arch)
+- gtk4, gtkmm-4.0
+- sqlite
+- tesseract, tesseract-data-eng, tesseract-data-spa
+- opencv
+- wl-clipboard
+- grpc, protobuf
+- onnxruntime
+- nlohmann-json (parseo de vocab.json para el tokenizer BPE)
+- cmake, ninja
+
 ## Objetivos de Performance
 - **Captura de clipboard**: < 10ms
 - **Apertura de UI**: < 100ms

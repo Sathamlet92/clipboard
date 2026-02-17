@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia;
@@ -15,6 +17,10 @@ using ReactiveUI;
 
 namespace ClipboardManager.App.ViewModels;
 
+/// <summary>
+/// ViewModel principal de la ventana de la aplicación.
+/// Gestiona la lista de items del clipboard, búsqueda y operaciones CRUD.
+/// </summary>
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly ClipboardService _clipboardService;
@@ -24,8 +30,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _searchQuery = string.Empty;
     private ClipboardItemViewModel? _selectedItem;
     private bool _isLoading;
-    private SearchMode _searchMode = SearchMode.Hybrid; // Por defecto híbrido
+    private SearchMode _searchMode = SearchMode.Hybrid;
+    private CancellationTokenSource? _searchCancellation;
 
+    /// <summary>
+    /// Inicializa una nueva instancia del ViewModel principal.
+    /// </summary>
+    /// <param name="clipboardService">Servicio de gestión del clipboard</param>
+    /// <param name="clipboardRepository">Repositorio de items del clipboard</param>
+    /// <param name="searchRepository">Repositorio de búsqueda</param>
+    /// <param name="embeddingService">Servicio de embeddings para búsqueda semántica (opcional)</param>
     public MainWindowViewModel(
         ClipboardService clipboardService, 
         ClipboardRepository clipboardRepository,
@@ -47,28 +61,32 @@ public partial class MainWindowViewModel : ViewModelBase
         _ = LoadItemsAsync();
     }
 
+    /// <summary>
+    /// Colección observable de items del clipboard para mostrar en la UI.
+    /// </summary>
     public ObservableCollection<ClipboardItemViewModel> Items { get; }
 
+    /// <summary>
+    /// Query de búsqueda actual. No dispara búsqueda automáticamente.
+    /// </summary>
     public string SearchQuery
     {
         get => _searchQuery;
-        set
-        {
-            this.RaiseAndSetIfChanged(ref _searchQuery, value);
-            _ = SearchAsync();
-        }
+        set => this.RaiseAndSetIfChanged(ref _searchQuery, value);
     }
 
+    /// <summary>
+    /// Modo de búsqueda actual (Texto, Semántico, Híbrido).
+    /// </summary>
     public SearchMode SearchMode
     {
         get => _searchMode;
-        set
-        {
-            this.RaiseAndSetIfChanged(ref _searchMode, value);
-            _ = SearchAsync();
-        }
+        set => this.RaiseAndSetIfChanged(ref _searchMode, value);
     }
 
+    /// <summary>
+    /// Índice del modo de búsqueda para binding con ComboBox.
+    /// </summary>
     public int SearchModeIndex
     {
         get => (int)_searchMode;
@@ -78,132 +96,172 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Item actualmente seleccionado en la UI.
+    /// </summary>
     public ClipboardItemViewModel? SelectedItem
     {
         get => _selectedItem;
         set => this.RaiseAndSetIfChanged(ref _selectedItem, value);
     }
 
+    /// <summary>
+    /// Indica si hay una operación en progreso.
+    /// </summary>
     public bool IsLoading
     {
         get => _isLoading;
         set => this.RaiseAndSetIfChanged(ref _isLoading, value);
     }
 
+    /// <summary>
+    /// Comando para ejecutar búsqueda.
+    /// </summary>
     public ICommand SearchCommand { get; }
+    
+    /// <summary>
+    /// Comando para copiar un item al clipboard.
+    /// </summary>
     public ICommand CopyToClipboardCommand { get; }
+    
+    /// <summary>
+    /// Comando para eliminar un item.
+    /// </summary>
     public ICommand DeleteItemCommand { get; }
+    
+    /// <summary>
+    /// Comando para refrescar la lista de items.
+    /// </summary>
     public ICommand RefreshCommand { get; }
 
+    /// <summary>
+    /// Carga los items más recientes del historial del clipboard.
+    /// </summary>
     private async Task LoadItemsAsync()
     {
-        IsLoading = true;
         try
         {
-            var items = await _clipboardRepository.GetRecentAsync(100);
+            // Cargar solo 20 items inicialmente para carga rápida
+            var items = await _clipboardRepository.GetRecentAsync(20);
             Items.Clear();
             foreach (var item in items)
             {
                 Items.Add(new ClipboardItemViewModel(item));
             }
         }
-        finally
+        catch (Exception ex)
         {
-            IsLoading = false;
+            Console.WriteLine($"❌ Error cargando items: {ex.Message}");
         }
     }
 
+    /// <summary>
+    /// Ejecuta una búsqueda asíncrona sin bloquear el UI.
+    /// Cancela búsquedas anteriores si aún están en progreso.
+    /// </summary>
     public async Task SearchAsync()
     {
+        // Cancelar búsqueda anterior si existe
+        _searchCancellation?.Cancel();
+        _searchCancellation = new CancellationTokenSource();
+        var cancellationToken = _searchCancellation.Token;
+
+        // Si no hay query, cargar todos los items
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
             await LoadItemsAsync();
             return;
         }
 
-        IsLoading = true;
+        // NO bloquear el UI - ejecutar en background
         try
         {
+            List<SearchResult> results;
+
             if (_searchMode == SearchMode.Semantic && _embeddingService?.IsAvailable == true)
             {
                 // Búsqueda semántica pura
-                var queryEmbedding = await _embeddingService.GetEmbeddingAsync(SearchQuery);
-                if (queryEmbedding != null)
+                var queryEmbedding = await Task.Run(() => 
+                    _embeddingService.GetEmbeddingAsync(SearchQuery), cancellationToken);
+                
+                if (queryEmbedding != null && !cancellationToken.IsCancellationRequested)
                 {
-                    var results = await _searchRepository.SemanticSearchAsync(queryEmbedding);
-                    Items.Clear();
-                    foreach (var result in results.Take(100))
-                    {
-                        Items.Add(new ClipboardItemViewModel(result.Item));
-                    }
-                    Console.WriteLine($"🔍 Búsqueda semántica: {results.Count} resultados");
+                    results = await _searchRepository.SemanticSearchAsync(queryEmbedding);
+                }
+                else
+                {
                     return;
                 }
             }
             else if (_searchMode == SearchMode.Hybrid && _embeddingService?.IsAvailable == true)
             {
-                // Búsqueda híbrida (FTS5 + semántica)
-                // Pesos: 70% FTS5 (texto exacto) + 30% semántica (significado)
-                // Esto prioriza coincidencias exactas pero permite encontrar conceptos relacionados
-                var queryEmbedding = await _embeddingService.GetEmbeddingAsync(SearchQuery);
-                if (queryEmbedding != null)
+                // Búsqueda híbrida: texto + semántico
+                var queryEmbedding = await Task.Run(() => 
+                    _embeddingService.GetEmbeddingAsync(SearchQuery), cancellationToken);
+                
+                if (queryEmbedding != null && !cancellationToken.IsCancellationRequested)
                 {
-                    var results = await _searchRepository.HybridSearchAsync(
+                    results = await _searchRepository.HybridSearchAsync(
                         SearchQuery, 
                         queryEmbedding,
-                        limit: 100,
-                        textWeight: 0.7f,      // 70% peso a coincidencias exactas
-                        semanticWeight: 0.3f); // 30% peso a similitud semántica
-                    Items.Clear();
-                    foreach (var result in results.Take(100))
-                    {
-                        Items.Add(new ClipboardItemViewModel(result.Item));
-                    }
-                    Console.WriteLine($"🔍 Búsqueda híbrida: {results.Count} resultados");
+                        limit: 50,
+                        textWeight: 0.7f,
+                        semanticWeight: 0.3f);
+                }
+                else
+                {
                     return;
                 }
             }
-            
-            // Fallback a búsqueda FTS5
-            var textResults = await _searchRepository.FullTextSearchAsync(SearchQuery);
-            Items.Clear();
-            foreach (var result in textResults.Take(100))
+            else
             {
-                Items.Add(new ClipboardItemViewModel(result.Item));
+                // Fallback a búsqueda FTS5 (más rápida)
+                results = await _searchRepository.FullTextSearchAsync(SearchQuery, limit: 50);
             }
-            Console.WriteLine($"🔍 Búsqueda FTS5: {textResults.Count} resultados");
+
+            // Actualizar UI solo si no fue cancelado
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                Items.Clear();
+                foreach (var result in results)
+                {
+                    Items.Add(new ClipboardItemViewModel(result.Item));
+                }
+            }
         }
-        finally
+        catch (OperationCanceledException)
         {
-            IsLoading = false;
+            // Búsqueda cancelada, ignorar
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error en búsqueda: {ex.Message}");
         }
     }
 
+    /// <summary>
+    /// Copia un item al clipboard del sistema.
+    /// Usa wl-copy en Wayland, fallback a Avalonia clipboard API.
+    /// </summary>
+    /// <param name="item">Item a copiar</param>
     public async Task CopyItemAsync(ClipboardItemViewModel item)
     {
         if (item == null) return;
         
         try
         {
-            // Marcar para ignorar el próximo evento de clipboard
             if (Application.Current is App app)
             {
                 app.IgnoreNextClipboardChange();
             }
             
-            // Obtener el clipboard desde la ventana principal
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             var mainWindow = lifetime?.MainWindow;
             
-            if (mainWindow?.Clipboard == null)
-            {
-                Console.WriteLine("❌ No se pudo acceder al clipboard");
-                return;
-            }
+            if (mainWindow?.Clipboard == null) return;
             
             if (item.IsImage)
             {
-                // Copiar imagen usando wl-copy con stdin (workaround para Avalonia/Wayland)
                 try
                 {
                     var process = new System.Diagnostics.Process
@@ -224,27 +282,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     process.StandardInput.Close();
                     await process.WaitForExitAsync();
                     
-                    if (process.ExitCode == 0)
+                    if (process.ExitCode != 0 && item.ImageSource != null)
                     {
-                        Console.WriteLine($"🖼️  Imagen copiada al clipboard ({item.Item.Content.Length} bytes)");
-                    }
-                    else
-                    {
-                        var error = await process.StandardError.ReadToEndAsync();
-                        Console.WriteLine($"❌ Error en wl-copy para imagen: {error}");
-                        
-                        // Fallback a Avalonia
-                        if (item.ImageSource != null)
-                        {
-                            await mainWindow.Clipboard.SetBitmapAsync(item.ImageSource);
-                        }
+                        await mainWindow.Clipboard.SetBitmapAsync(item.ImageSource);
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"❌ Error copiando imagen: {ex.Message}");
-                    
-                    // Fallback a Avalonia
                     if (item.ImageSource != null)
                     {
                         await mainWindow.Clipboard.SetBitmapAsync(item.ImageSource);
@@ -253,7 +297,6 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                // Copiar texto usando wl-copy para garantizar UTF-8 correcto
                 var text = System.Text.Encoding.UTF8.GetString(item.Item.Content);
                 
                 try
@@ -276,24 +319,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     process.StandardInput.Close();
                     await process.WaitForExitAsync();
                     
-                    if (process.ExitCode == 0)
+                    if (process.ExitCode != 0)
                     {
-                        Console.WriteLine($"📋 Texto copiado: {text.Substring(0, Math.Min(50, text.Length))}...");
-                    }
-                    else
-                    {
-                        var error = await process.StandardError.ReadToEndAsync();
-                        Console.WriteLine($"❌ Error en wl-copy: {error}");
-                        
-                        // Fallback a Avalonia
                         await mainWindow.Clipboard.SetTextAsync(text);
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"❌ Error usando wl-copy: {ex.Message}");
-                    
-                    // Fallback a Avalonia
                     await mainWindow.Clipboard.SetTextAsync(text);
                 }
             }
@@ -316,7 +348,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await _clipboardRepository.DeleteAllAsync();
         Items.Clear();
-        Console.WriteLine("🗑️  Historial limpiado");
+        SearchQuery = ""; // Limpiar búsqueda también
+        Console.WriteLine("✅ Historial limpiado");
     }
 
     public async Task CopyOcrTextAsync(ClipboardItemViewModel item)
@@ -325,44 +358,24 @@ public partial class MainWindowViewModel : ViewModelBase
         
         try
         {
-            // Refrescar item de la DB para obtener OCR actualizado
             var freshItem = await _clipboardRepository.GetByIdAsync(item.Id);
-            if (freshItem == null)
+            if (freshItem == null || string.IsNullOrWhiteSpace(freshItem.OcrText))
             {
-                Console.WriteLine("❌ Item no encontrado en DB");
                 return;
             }
             
-            // Verificar si hay texto OCR
-            if (string.IsNullOrWhiteSpace(freshItem.OcrText))
-            {
-                Console.WriteLine("⚠️  No hay texto OCR disponible. El OCR puede estar procesándose...");
-                return;
-            }
-            
-            // Marcar para ignorar el próximo evento de clipboard
             if (Application.Current is App app)
             {
                 app.IgnoreNextClipboardChange();
             }
             
-            // Obtener el clipboard desde la ventana principal
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             var mainWindow = lifetime?.MainWindow;
             
-            if (mainWindow?.Clipboard == null)
-            {
-                Console.WriteLine("❌ No se pudo acceder al clipboard");
-                return;
-            }
-            
-            // Copiar SOLO texto OCR usando wl-copy directamente (solución para Wayland UTF-8)
-            Console.WriteLine($"📝 Copiando texto OCR ({freshItem.OcrText.Length} caracteres):");
-            Console.WriteLine($"   Primeros 100 chars: {freshItem.OcrText.Substring(0, Math.Min(100, freshItem.OcrText.Length))}");
+            if (mainWindow?.Clipboard == null) return;
             
             try
             {
-                // Usar wl-copy directamente para garantizar UTF-8 correcto en Wayland
                 var process = new System.Diagnostics.Process
                 {
                     StartInfo = new System.Diagnostics.ProcessStartInfo
@@ -381,27 +394,14 @@ public partial class MainWindowViewModel : ViewModelBase
                 process.StandardInput.Close();
                 await process.WaitForExitAsync();
                 
-                if (process.ExitCode == 0)
+                if (process.ExitCode != 0)
                 {
-                    Console.WriteLine($"✅ Texto OCR copiado al clipboard (wl-copy)");
-                }
-                else
-                {
-                    var error = await process.StandardError.ReadToEndAsync();
-                    Console.WriteLine($"❌ Error en wl-copy: {error}");
-                    
-                    // Fallback a Avalonia
                     await mainWindow.Clipboard.SetTextAsync(freshItem.OcrText);
-                    Console.WriteLine($"⚠️  Usando fallback de Avalonia");
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"❌ Error usando wl-copy: {ex.Message}");
-                
-                // Fallback a Avalonia
                 await mainWindow.Clipboard.SetTextAsync(freshItem.OcrText);
-                Console.WriteLine($"⚠️  Usando fallback de Avalonia");
             }
         }
         catch (Exception ex)
@@ -414,8 +414,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         Items.Insert(0, new ClipboardItemViewModel(item));
         
-        // Limitar a 100 items en memoria
-        while (Items.Count > 100)
+        // Limitar a 50 items en memoria para mejor rendimiento
+        while (Items.Count > 50)
         {
             Items.RemoveAt(Items.Count - 1);
         }
@@ -426,20 +426,17 @@ public partial class MainWindowViewModel : ViewModelBase
         var item = Items.FirstOrDefault(i => i.Id == itemId);
         if (item != null)
         {
-            // Actualizar el item en la colección
             var index = Items.IndexOf(item);
             if (index >= 0)
             {
-                // Refrescar el item con el nuevo OCR text
                 var freshItem = item.Item;
                 freshItem.OcrText = ocrText;
                 Items[index] = new ClipboardItemViewModel(freshItem);
-                Console.WriteLine($"🔄 UI actualizada con OCR para item {itemId}");
             }
         }
     }
 
-    public void UpdateLanguage(long itemId, string language)
+    public async Task UpdateLanguageAsync(long itemId, string language)
     {
         var item = Items.FirstOrDefault(i => i.Id == itemId);
         if (item != null)
@@ -447,14 +444,24 @@ public partial class MainWindowViewModel : ViewModelBase
             var index = Items.IndexOf(item);
             if (index >= 0)
             {
-                var freshItem = item.Item;
-                
-                // ML detectó código - actualizar tipo y lenguaje
-                freshItem.ContentType = ClipboardType.Code;
-                freshItem.CodeLanguage = language;
-                
-                Items[index] = new ClipboardItemViewModel(freshItem);
-                Console.WriteLine($"🔄 UI actualizada: Text → Code ({language}) para item {itemId}");
+                // Obtener item fresco de la base de datos
+                var freshItem = await _clipboardRepository.GetByIdAsync(itemId);
+                if (freshItem != null)
+                {
+                    // Asegurar que está marcado como código
+                    if (freshItem.ContentType != ClipboardType.Code)
+                    {
+                        freshItem.ContentType = ClipboardType.Code;
+                    }
+                    if (freshItem.CodeLanguage != language)
+                    {
+                        freshItem.CodeLanguage = language;
+                    }
+                    
+                    // Remover y agregar de nuevo para forzar recreación del control
+                    Items.RemoveAt(index);
+                    Items.Insert(index, new ClipboardItemViewModel(freshItem));
+                }
             }
         }
     }
