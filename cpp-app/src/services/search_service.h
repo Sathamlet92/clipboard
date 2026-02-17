@@ -16,6 +16,7 @@ private:
     std::shared_ptr<ClipboardDB> db_;
     std::shared_ptr<EmbeddingService> embedding_service_;
     
+    std::vector<ClipboardItem> exact_search(const std::string& query, int limit);
     std::vector<ClipboardItem> fts_search(const std::string& query, int limit);
     std::vector<ClipboardItem> semantic_search(const std::string& query, int limit);
     std::vector<ClipboardItem> merge_results(

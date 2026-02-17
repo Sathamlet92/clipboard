@@ -1,4 +1,7 @@
 #include "clipboard_service.h"
+#include "../ml/embedding_service.h"
+#include "../ml/language_detector.h"
+#include "../ml/ocr_service.h"
 #include <iostream>
 #include <chrono>
 #include <cstring>
@@ -9,33 +12,52 @@ namespace {
 bool is_url_like(const std::string& input);
 bool is_json_like(const std::string& input);
 std::string detect_code_language(const std::string& text, LanguageDetector* detector);
+std::string build_embedding_text(const ClipboardItem& item);
 }
 
 ClipboardService::ClipboardService(std::shared_ptr<ClipboardDB> db)
     : db_(db)
 {
-    auto models_path = std::string(getenv("HOME")) + "/.clipboard-manager/models";
-    
-    try {
-        embedding_service_ = std::make_unique<EmbeddingService>(models_path + "/ml/embedding-model.onnx");
-        std::cout << "✅ Embedding service enabled" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "⚠️  Embedding service disabled: " << e.what() << std::endl;
-    }
-    
-    try {
-        language_detector_ = std::make_unique<LanguageDetector>(models_path + "/language-detection/model.onnx");
-        std::cout << "✅ Language detector enabled" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "⚠️  Language detector disabled: " << e.what() << std::endl;
-    }
-    
-    try {
-        ocr_service_ = std::make_unique<OCRService>("/usr/share/tessdata");
-        std::cout << "✅ OCR service enabled" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "⚠️  OCR service disabled: " << e.what() << std::endl;
-    }
+    models_path_ = std::string(getenv("HOME")) + "/.clipboard-manager/models";
+    std::cout << "✅ Clipboard service ready (ML/OCR lazy init enabled)" << std::endl;
+}
+
+ClipboardService::~ClipboardService() = default;
+
+EmbeddingService* ClipboardService::get_embedding_service() {
+    std::call_once(embedding_init_once_, [this]() {
+        try {
+            embedding_service_ = std::make_unique<EmbeddingService>(models_path_ + "/ml/embedding-model.onnx");
+            std::cout << "✅ Embedding service enabled" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "⚠️  Embedding service disabled: " << e.what() << std::endl;
+        }
+    });
+    return embedding_service_.get();
+}
+
+LanguageDetector* ClipboardService::get_language_detector() {
+    std::call_once(language_init_once_, [this]() {
+        try {
+            language_detector_ = std::make_unique<LanguageDetector>(models_path_ + "/language-detection/model.onnx");
+            std::cout << "✅ Language detector enabled" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "⚠️  Language detector disabled: " << e.what() << std::endl;
+        }
+    });
+    return language_detector_.get();
+}
+
+OCRService* ClipboardService::get_ocr_service() {
+    std::call_once(ocr_init_once_, [this]() {
+        try {
+            ocr_service_ = std::make_unique<OCRService>("/usr/share/tessdata");
+            std::cout << "✅ OCR service enabled" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "⚠️  OCR service disabled: " << e.what() << std::endl;
+        }
+    });
+    return ocr_service_.get();
 }
 
 void ClipboardService::set_items_updated_callback(std::function<void()> callback) {
@@ -68,7 +90,6 @@ void ClipboardService::process_event(const ClipboardEvent& event) {
         item.type = ClipboardType::Image;
         item.content.assign(event.image_data.begin(), event.image_data.end());
         item.mime_type = "image/png";
-        process_image(item);
     } else if (!event.text_content.empty()) {
         // Text content - store as blob - ALWAYS start as Text
         item.text_content = event.text_content;
@@ -81,21 +102,17 @@ void ClipboardService::process_event(const ClipboardEvent& event) {
         return;
     }
     
-    // Generate embedding in background
-    if (!item.get_text().empty() && embedding_service_) {
-        item.embedding = embedding_service_->generate_embedding(item.get_text());
-    }
-    
     // Insert into database
     int64_t id = db_->insert(item);
     if (id > 0) {
         std::cout << "✅ Item saved: " << id << std::endl;
         
         // Detect code language in BACKGROUND (like C# does)
-        if (item.type == ClipboardType::Text && language_detector_) {
+        auto* language_detector = get_language_detector();
+        if (item.type == ClipboardType::Text && language_detector) {
             std::string text = item.text_content;
             auto db = db_;
-            auto lang_detector = language_detector_.get();
+            auto lang_detector = language_detector;
             auto items_updated = items_updated_callback_;
             
             std::thread([id, text, db, lang_detector, items_updated]() {
@@ -118,6 +135,94 @@ void ClipboardService::process_event(const ClipboardEvent& event) {
                     std::cerr << "⚠️  Error detecting language: " << e.what() << std::endl;
                 }
             }).detach();
+        }
+
+        // Generate embedding in BACKGROUND so copy events stay responsive
+        if (auto* embedding_service = get_embedding_service()) {
+            auto db = db_;
+            auto embedder = embedding_service;
+            auto items_updated = items_updated_callback_;
+            ClipboardItem snapshot = item;
+
+            std::thread([id, snapshot, db, embedder, items_updated]() {
+                try {
+                    auto fresh_item = db->get(id);
+                    if (!fresh_item) {
+                        return;
+                    }
+
+                    std::string embedding_text = build_embedding_text(*fresh_item);
+                    if (embedding_text.empty()) {
+                        embedding_text = build_embedding_text(snapshot);
+                    }
+
+                    if (embedding_text.empty()) {
+                        return;
+                    }
+
+                    auto emb = embedder->generate_embedding(embedding_text);
+                    if (emb.empty()) {
+                        return;
+                    }
+
+                    fresh_item->embedding = std::move(emb);
+                    db->update(*fresh_item);
+                    if (items_updated) {
+                        items_updated();
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "⚠️  Error generating embedding: " << e.what() << std::endl;
+                }
+            }).detach();
+        }
+
+        // OCR for images in BACKGROUND (can be expensive)
+        if (item.type == ClipboardType::Image) {
+            auto* ocr_service = get_ocr_service();
+            auto* language_detector_bg = get_language_detector();
+            auto* embedding_service_bg = get_embedding_service();
+            if (ocr_service) {
+                auto db = db_;
+                auto ocr = ocr_service;
+                auto lang_detector = language_detector_bg;
+                auto embedder = embedding_service_bg;
+                auto items_updated = items_updated_callback_;
+
+                std::thread([id, db, ocr, lang_detector, embedder, items_updated]() {
+                    try {
+                        auto fresh_item = db->get(id);
+                        if (!fresh_item || fresh_item->type != ClipboardType::Image) {
+                            return;
+                        }
+
+                        std::string extracted = ocr->extract_text(fresh_item->content);
+                        if (extracted.empty()) {
+                            return;
+                        }
+
+                        fresh_item->ocr_text = extracted;
+                        std::string language = detect_code_language(extracted, lang_detector);
+                        if (!language.empty()) {
+                            fresh_item->code_language = language;
+                        }
+
+                        if (embedder) {
+                            std::string embedding_text = build_embedding_text(*fresh_item);
+                            auto emb = embedder->generate_embedding(embedding_text);
+                            if (!emb.empty()) {
+                                fresh_item->embedding = std::move(emb);
+                            }
+                        }
+
+                        db->update(*fresh_item);
+                        if (items_updated) {
+                            items_updated();
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "⚠️  Error in background OCR: " << e.what() << std::endl;
+                    }
+                }).detach();
+            }
         }
     } else {
         std::cerr << "❌ Failed to save item" << std::endl;
@@ -227,6 +332,31 @@ std::string detect_code_language(const std::string& text, LanguageDetector* dete
 
     return "";
 }
+
+std::string build_embedding_text(const ClipboardItem& item) {
+    std::string text;
+
+    if (!item.content.empty() && item.type != ClipboardType::Image) {
+        text.assign(item.content.begin(), item.content.end());
+    }
+
+    if (!item.ocr_text.empty()) {
+        if (!text.empty()) text += "\n";
+        text += item.ocr_text;
+    }
+
+    if (!item.code_language.empty()) {
+        if (!text.empty()) text += "\n";
+        text += "language: " + item.code_language;
+    }
+
+    if (!item.content_type.empty()) {
+        if (!text.empty()) text += "\n";
+        text += "type: " + item.content_type;
+    }
+
+    return text;
+}
 }
 
 ClipboardType ClipboardService::classify_content(const std::string& text) {
@@ -239,12 +369,12 @@ ClipboardType ClipboardService::classify_content(const std::string& text) {
 
 void ClipboardService::process_image(ClipboardItem& item) {
     // Run OCR
-    if (ocr_service_) {
-        item.ocr_text = ocr_service_->extract_text(item.content);
+    if (auto* ocr_service = get_ocr_service()) {
+        item.ocr_text = ocr_service->extract_text(item.content);
         
         if (!item.ocr_text.empty()) {
             // Check if OCR text is code
-            std::string language = detect_code_language(item.ocr_text, language_detector_.get());
+            std::string language = detect_code_language(item.ocr_text, get_language_detector());
             if (!language.empty()) {
                 item.code_language = language;
             }

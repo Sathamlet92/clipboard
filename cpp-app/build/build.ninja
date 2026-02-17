@@ -58,6 +58,15 @@ build CMakeFiles/clipboard-manager.dir/src/main.cpp.o: CXX_COMPILER__clipboard-m
   OBJECT_FILE_DIR = CMakeFiles/clipboard-manager.dir/src
   TARGET_SUPPORT_DIR = CMakeFiles/clipboard-manager.dir
 
+build CMakeFiles/clipboard-manager.dir/src/app/bootstrap.cpp.o: CXX_COMPILER__clipboard-manager_unscanned_Release /home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/src/app/bootstrap.cpp || cmake_object_order_depends_target_clipboard-manager
+  CONFIG = Release
+  DEP_FILE = CMakeFiles/clipboard-manager.dir/src/app/bootstrap.cpp.o.d
+  FLAGS = -O3 -DNDEBUG -std=gnu++20 -mfpmath=sse -msse -msse2 -pthread -Wall -Wextra -O3
+  INCLUDES = -I/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/src -I/home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/build -I/usr/include/gtk-4.0 -I/usr/include/pango-1.0 -I/usr/include/fribidi -I/usr/include/harfbuzz -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/glycin-2 -I/usr/include/cairo -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/pixman-1 -I/usr/include/graphene-1.0 -I/usr/lib/graphene-1.0/include -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/sysprof-6 -I/usr/include/gtkmm-4.0 -I/usr/lib/gtkmm-4.0/include -I/usr/include/pangomm-2.48 -I/usr/lib/pangomm-2.48/include -I/usr/include/giomm-2.68 -I/usr/lib/giomm-2.68/include -I/usr/include/glibmm-2.68 -I/usr/lib/glibmm-2.68/include -I/usr/include/gio-unix-2.0 -I/usr/include/cairomm-1.16 -I/usr/lib/cairomm-1.16/include -I/usr/include/sigc++-3.0 -I/usr/lib/sigc++-3.0/include -I/usr/include/gtk-4.0/unix-print -I/usr/include/leptonica -I/usr/include/opencv4 -I/usr/include/onnxruntime
+  OBJECT_DIR = CMakeFiles/clipboard-manager.dir
+  OBJECT_FILE_DIR = CMakeFiles/clipboard-manager.dir/src/app
+  TARGET_SUPPORT_DIR = CMakeFiles/clipboard-manager.dir
+
 build CMakeFiles/clipboard-manager.dir/src/ui/main_window.cpp.o: CXX_COMPILER__clipboard-manager_unscanned_Release /home/sathamlet/Documents/projects/clipboard-smart-manager/cpp-app/src/ui/main_window.cpp || cmake_object_order_depends_target_clipboard-manager
   CONFIG = Release
   DEP_FILE = CMakeFiles/clipboard-manager.dir/src/ui/main_window.cpp.o.d
@@ -165,7 +174,7 @@ build CMakeFiles/clipboard-manager.dir/clipboard.grpc.pb.cc.o: CXX_COMPILER__cli
 #############################################
 # Link the executable clipboard-manager
 
-build clipboard-manager: CXX_EXECUTABLE_LINKER__clipboard-manager_Release CMakeFiles/clipboard-manager.dir/src/main.cpp.o CMakeFiles/clipboard-manager.dir/src/ui/main_window.cpp.o CMakeFiles/clipboard-manager.dir/src/ui/clipboard_item_widget.cpp.o CMakeFiles/clipboard-manager.dir/src/database/clipboard_db.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/embedding_service.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/language_detector.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/ocr_service.cpp.o CMakeFiles/clipboard-manager.dir/src/services/clipboard_service.cpp.o CMakeFiles/clipboard-manager.dir/src/services/search_service.cpp.o CMakeFiles/clipboard-manager.dir/src/grpc/daemon_client.cpp.o CMakeFiles/clipboard-manager.dir/clipboard.pb.cc.o CMakeFiles/clipboard-manager.dir/clipboard.grpc.pb.cc.o | /usr/lib/libonnxruntime.so /usr/lib/libonnxruntime.so
+build clipboard-manager: CXX_EXECUTABLE_LINKER__clipboard-manager_Release CMakeFiles/clipboard-manager.dir/src/main.cpp.o CMakeFiles/clipboard-manager.dir/src/app/bootstrap.cpp.o CMakeFiles/clipboard-manager.dir/src/ui/main_window.cpp.o CMakeFiles/clipboard-manager.dir/src/ui/clipboard_item_widget.cpp.o CMakeFiles/clipboard-manager.dir/src/database/clipboard_db.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/embedding_service.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/language_detector.cpp.o CMakeFiles/clipboard-manager.dir/src/ml/ocr_service.cpp.o CMakeFiles/clipboard-manager.dir/src/services/clipboard_service.cpp.o CMakeFiles/clipboard-manager.dir/src/services/search_service.cpp.o CMakeFiles/clipboard-manager.dir/src/grpc/daemon_client.cpp.o CMakeFiles/clipboard-manager.dir/clipboard.pb.cc.o CMakeFiles/clipboard-manager.dir/clipboard.grpc.pb.cc.o | /usr/lib/libonnxruntime.so /usr/lib/libonnxruntime.so
   CONFIG = Release
   DEP_FILE = CMakeFiles/clipboard-manager.dir/link.d
   FLAGS = -O3 -DNDEBUG

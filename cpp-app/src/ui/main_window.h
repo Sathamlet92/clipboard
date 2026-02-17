@@ -2,6 +2,7 @@
 
 #include <gtkmm.h>
 #include <memory>
+#include <atomic>
 #include "../services/clipboard_service.h"
 #include "../services/search_service.h"
 
@@ -23,6 +24,7 @@ protected:
     // UI update
     void load_items();
     void update_item_list();
+    void ensure_search_focus();
     
 private:
     // Services
@@ -43,4 +45,7 @@ private:
     // Data
     std::vector<ClipboardItem> items_;
     std::string current_search_;
+
+    std::atomic<bool> refresh_scheduled_{false};
+    std::atomic<bool> refresh_requested_{false};
 };

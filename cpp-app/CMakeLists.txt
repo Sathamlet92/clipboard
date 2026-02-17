@@ -26,6 +26,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc)
 # Source files
 set(SOURCES
     src/main.cpp
+    src/app/bootstrap.cpp
     src/ui/main_window.cpp
     src/ui/clipboard_item_widget.cpp
     src/database/clipboard_db.cpp

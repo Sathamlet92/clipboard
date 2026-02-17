@@ -498,6 +498,9 @@ bool ClipboardDB::update(const ClipboardItem& item) {
         std::cerr << "❌ DB Update failed: " << sqlite3_errmsg(db_) << std::endl;
         return false;
     }
+
+    // Keep FTS synchronized with updated OCR/language/text fields.
+    update_fts(db_, item.id, item);
     
     return true;
 }
@@ -538,6 +541,88 @@ bool ClipboardDB::delete_all() {
     }
     
     return true;
+}
+
+std::vector<ClipboardItem> ClipboardDB::search_exact(const std::string& query, int limit) {
+    std::vector<ClipboardItem> items;
+
+    if (query.empty()) {
+        return items;
+    }
+
+    const char* sql = R"(
+        SELECT id, content, content_type, ocr_text, embedding, source_app, timestamp, is_password, is_encrypted, metadata, thumbnail, code_language
+        FROM clipboard_items
+        WHERE (
+            (content_type != 'Image' AND CAST(content AS TEXT) LIKE '%' || ? || '%' COLLATE NOCASE)
+            OR (ocr_text LIKE '%' || ? || '%' COLLATE NOCASE)
+            OR (code_language LIKE '%' || ? || '%' COLLATE NOCASE)
+            OR (source_app LIKE '%' || ? || '%' COLLATE NOCASE)
+            OR (content_type LIKE '%' || ? || '%' COLLATE NOCASE)
+        )
+        ORDER BY timestamp DESC
+        LIMIT ?
+    )";
+
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return items;
+    }
+
+    sqlite3_bind_text(stmt, 1, query.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, query.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, query.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, query.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, query.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 6, limit);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        ClipboardItem item;
+        item.id = sqlite3_column_int64(stmt, 0);
+
+        const void* blob = sqlite3_column_blob(stmt, 1);
+        int blob_size = sqlite3_column_bytes(stmt, 1);
+        if (blob && blob_size > 0) item.content.assign(static_cast<const uint8_t*>(blob), static_cast<const uint8_t*>(blob) + blob_size);
+
+        const char* ctype = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        if (ctype) {
+            item.content_type = ctype;
+            std::string ct = ctype;
+            if (ct == "Code") {
+                item.type = ClipboardType::Code;
+            } else if (ct == "Image") {
+                item.type = ClipboardType::Image;
+            } else if (ct == "Url") {
+                item.type = ClipboardType::URL;
+            } else {
+                item.type = ClipboardType::Text;
+            }
+        }
+
+        if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
+            const char* ocr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+            if (ocr) item.ocr_text = ocr;
+        }
+
+        const char* app = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+        if (app) item.source_app = app;
+
+        item.timestamp = sqlite3_column_int64(stmt, 6);
+
+        if (sqlite3_column_type(stmt, 11) != SQLITE_NULL) {
+            const char* lang = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 11));
+            if (lang) item.code_language = lang;
+        }
+
+        if (!item.code_language.empty()) {
+            item.type = ClipboardType::Code;
+        }
+
+        items.push_back(std::move(item));
+    }
+
+    sqlite3_finalize(stmt);
+    return items;
 }
 
 std::vector<ClipboardItem> ClipboardDB::search_fts(const std::string& query, int limit) {
@@ -621,7 +706,10 @@ std::vector<ClipboardItem> ClipboardDB::search_by_embedding(const std::vector<fl
 
     const char* sql = R"(
         SELECT id, embedding, content, content_type, ocr_text, source_app, timestamp, code_language
-        FROM clipboard_items WHERE embedding IS NOT NULL
+        FROM clipboard_items
+        WHERE embedding IS NOT NULL
+        ORDER BY timestamp DESC
+        LIMIT 100
     )";
 
     sqlite3_stmt* stmt;
@@ -652,7 +740,19 @@ std::vector<ClipboardItem> ClipboardDB::search_by_embedding(const std::vector<fl
             item.content.assign(static_cast<const uint8_t*>(content_blob), static_cast<const uint8_t*>(content_blob) + content_size);
 
         const char* ctype = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        if (ctype) item.content_type = ctype;
+        if (ctype) {
+            item.content_type = ctype;
+            std::string ct = ctype;
+            if (ct == "Code") {
+                item.type = ClipboardType::Code;
+            } else if (ct == "Image") {
+                item.type = ClipboardType::Image;
+            } else if (ct == "Url") {
+                item.type = ClipboardType::URL;
+            } else {
+                item.type = ClipboardType::Text;
+            }
+        }
 
         if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
             const char* ocr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
@@ -667,6 +767,10 @@ std::vector<ClipboardItem> ClipboardDB::search_by_embedding(const std::vector<fl
         if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
             const char* lang = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
             if (lang) item.code_language = lang;
+        }
+
+        if (!item.code_language.empty()) {
+            item.type = ClipboardType::Code;
         }
 
         // store embedding temporarily in item.embedding

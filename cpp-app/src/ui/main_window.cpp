@@ -29,7 +29,6 @@ MainWindow::MainWindow(std::shared_ptr<ClipboardService> service)
             outline-width: 0;
             outline-style: none;
             outline-color: transparent;
-            -gtk-outline-radius: 0;
         }
         
         *:focus {
@@ -92,7 +91,6 @@ MainWindow::MainWindow(std::shared_ptr<ClipboardService> service)
         
         .item-box:hover {
             background-color: #234040;
-            cursor: pointer;
         }
         
         .item-box:focus {
@@ -207,6 +205,11 @@ MainWindow::MainWindow(std::shared_ptr<ClipboardService> service)
     search_box_.add_css_class("search-box");
     search_entry_.set_placeholder_text("Buscar en historial... (Enter o 🔍)");
     search_entry_.set_hexpand(true);
+    search_entry_.set_editable(true);
+    search_entry_.set_sensitive(true);
+    search_entry_.set_can_target(true);
+    search_entry_.set_can_focus(true);
+    search_entry_.set_focus_on_click(true);
     search_entry_.signal_changed().connect(
         sigc::mem_fun(*this, &MainWindow::on_search_changed));
     search_entry_.signal_activate().connect(
@@ -220,12 +223,20 @@ MainWindow::MainWindow(std::shared_ptr<ClipboardService> service)
     search_box_.append(search_entry_);
     search_box_.append(search_button_);
     search_box_.append(clear_button_);
+
+    auto search_click = Gtk::GestureClick::create();
+    search_click->set_button(GDK_BUTTON_PRIMARY);
+    search_click->signal_pressed().connect([this](int, double, double) {
+        ensure_search_focus();
+    });
+    search_box_.add_controller(search_click);
     
     // Setup item list
     scrolled_window_.set_vexpand(true);
     scrolled_window_.set_child(item_list_);
     scrolled_window_.set_can_focus(false);
     item_list_.set_can_focus(false);
+    item_list_.set_selection_mode(Gtk::SelectionMode::NONE);
     
     // Setup status bar
     status_bar_.add_css_class("status-bar");
@@ -242,25 +253,94 @@ MainWindow::MainWindow(std::shared_ptr<ClipboardService> service)
     status_bar_.set_can_focus(false);
     
     set_child(main_box_);
+
+    // Preferir foco inicial en la barra de búsqueda
+    ensure_search_focus();
+
+    signal_show().connect([this]() {
+        Glib::signal_timeout().connect_once([this]() {
+            ensure_search_focus();
+        }, 30);
+    });
+
+    auto focus_controller = Gtk::EventControllerFocus::create();
+    focus_controller->signal_enter().connect([this]() {
+        Glib::signal_timeout().connect_once([this]() {
+            ensure_search_focus();
+        }, 20);
+    });
+    add_controller(focus_controller);
     
     // Load initial items
     load_items();
     
     // Handle Escape key to hide window
     auto key_controller = Gtk::EventControllerKey::create();
+    key_controller->set_propagation_phase(Gtk::PropagationPhase::CAPTURE);
     key_controller->signal_key_pressed().connect(
-        [this](guint keyval, guint, Gdk::ModifierType) {
+        [this](guint keyval, guint, Gdk::ModifierType state) {
             if (keyval == GDK_KEY_Escape) {
                 hide();
                 return true;
             }
+
+            auto focus_widget = get_focus();
+            bool search_has_focus = (focus_widget == &search_entry_);
+
+            if (search_has_focus) {
+                return false;
+            }
+
+            auto has_mod = [state](Gdk::ModifierType mask) {
+                return (state & mask) != Gdk::ModifierType(0);
+            };
+            bool has_blocking_mod =
+                has_mod(Gdk::ModifierType::CONTROL_MASK) ||
+                has_mod(Gdk::ModifierType::ALT_MASK) ||
+                has_mod(Gdk::ModifierType::SUPER_MASK) ||
+                has_mod(Gdk::ModifierType::META_MASK);
+
+            if (!has_blocking_mod) {
+                if (keyval == GDK_KEY_BackSpace) {
+                    Glib::ustring text = search_entry_.get_text();
+                    if (!text.empty()) {
+                        text.erase(text.size() - 1);
+                        search_entry_.set_text(text);
+                        search_entry_.set_position(-1);
+                    }
+                    ensure_search_focus();
+                    return true;
+                }
+
+                if (keyval == GDK_KEY_Return || keyval == GDK_KEY_KP_Enter) {
+                    ensure_search_focus();
+                    on_search_activated();
+                    return true;
+                }
+
+                gunichar unicode = gdk_keyval_to_unicode(keyval);
+                if (unicode != 0 && !g_unichar_iscntrl(unicode)) {
+                    Glib::ustring text = search_entry_.get_text();
+                    text += unicode;
+                    search_entry_.set_text(text);
+                    search_entry_.set_position(-1);
+                    ensure_search_focus();
+                    return true;
+                }
+            }
+
             return false;
         }, false);
     add_controller(key_controller);
 }
 
 void MainWindow::on_search_changed() {
-    // No hacer búsqueda automática, solo al presionar Enter o botón
+    current_search_ = search_entry_.get_text();
+    // Evitar búsquedas pesadas por cada tecla.
+    // Solo recargar automáticamente cuando se limpia el campo.
+    if (current_search_.empty()) {
+        load_items();
+    }
 }
 
 void MainWindow::on_search_activated() {
@@ -300,7 +380,6 @@ void MainWindow::on_clear_all_clicked() {
 }
 
 void MainWindow::load_items() {
-    std::cout << "🔧 MainWindow: Loading items..." << std::endl;
     if (current_search_.empty()) {
         items_ = clipboard_service_->get_recent_items(20);
     } else if (search_service_) {
@@ -309,24 +388,19 @@ void MainWindow::load_items() {
         items_ = clipboard_service_->get_recent_items(20);
     }
     
-    std::cout << "✅ MainWindow: Loaded " << items_.size() << " items" << std::endl;
     update_item_list();
     status_label_.set_text(std::to_string(items_.size()) + " items");
 }
 
 void MainWindow::update_item_list() {
-    std::cout << "🔧 MainWindow: Updating item list with " << items_.size() << " items..." << std::endl;
-    
     // Clear existing items
     while (auto child = item_list_.get_first_child()) {
         item_list_.remove(*child);
     }
-    
-    std::cout << "🔧 MainWindow: Creating widgets..." << std::endl;
+
     // Add new items
     for (size_t i = 0; i < items_.size(); ++i) {
         const auto& item = items_[i];
-        std::cout << "🔧 MainWindow: Creating widget " << (i+1) << "/" << items_.size() << std::endl;
         
         try {
             auto widget = Gtk::make_managed<ClipboardItemWidget>(item);
@@ -344,18 +418,50 @@ void MainWindow::update_item_list() {
             // Widget already attaches its internal click controller in its constructor
             
             item_list_.append(*widget);
-            std::cout << "✅ MainWindow: Widget " << (i+1) << " added" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "❌ MainWindow: Failed to create widget: " << e.what() << std::endl;
         }
     }
-    
-    std::cout << "✅ MainWindow: Item list updated" << std::endl;
+}
+
+void MainWindow::ensure_search_focus() {
+    search_entry_.set_sensitive(true);
+    search_entry_.set_editable(true);
+    search_entry_.set_can_target(true);
+    search_entry_.set_can_focus(true);
+    search_entry_.set_focus_on_click(true);
+    search_entry_.grab_focus();
+    search_entry_.set_position(-1);
 }
 
 void MainWindow::refresh_from_daemon() {
-    // Called from daemon thread, use idle to update UI in main thread
-    Glib::signal_idle().connect_once([this]() {
-        load_items();
-    });
+    // Called from daemon thread. Debounce UI refreshes to avoid load storms.
+    refresh_requested_.store(true, std::memory_order_relaxed);
+
+    bool expected = false;
+    if (!refresh_scheduled_.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+        return;
+    }
+
+    Glib::signal_timeout().connect_once([this]() {
+        // Si el usuario está escribiendo en búsqueda, no refrescar la lista
+        // para evitar pérdida de foco/sensación de "barra bloqueada".
+        if (search_entry_.has_focus()) {
+            refresh_scheduled_.store(false, std::memory_order_release);
+            if (refresh_requested_.load(std::memory_order_acquire)) {
+                refresh_from_daemon();
+            }
+            return;
+        }
+
+        if (refresh_requested_.exchange(false, std::memory_order_acq_rel)) {
+            load_items();
+        }
+
+        refresh_scheduled_.store(false, std::memory_order_release);
+
+        if (refresh_requested_.load(std::memory_order_acquire)) {
+            refresh_from_daemon();
+        }
+    }, 80);
 }

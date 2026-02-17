@@ -9,6 +9,40 @@
 #include <glib.h>
 #include <glib.h>
 
+namespace {
+std::string trim_copy(const std::string& value) {
+    auto start = value.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) return "";
+    auto end = value.find_last_not_of(" \t\n\r");
+    return value.substr(start, end - start + 1);
+}
+
+std::string truncate_preview(const std::string& input, size_t max_chars) {
+    if (max_chars == 0) return "";
+    std::string clean = trim_copy(input);
+    if (clean.size() <= max_chars) return clean;
+    if (max_chars <= 3) return clean.substr(0, max_chars);
+    return clean.substr(0, max_chars - 3) + "...";
+}
+}
+
+static std::time_t normalize_timestamp_to_seconds(int64_t ts) {
+    if (ts <= 0) {
+        return std::time(nullptr);
+    }
+
+    if (ts > 1000000000000000000LL) {      // nanoseconds
+        return static_cast<std::time_t>(ts / 1000000000LL);
+    }
+    if (ts > 1000000000000000LL) {         // microseconds
+        return static_cast<std::time_t>(ts / 1000000LL);
+    }
+    if (ts > 1000000000000LL) {            // milliseconds
+        return static_cast<std::time_t>(ts / 1000LL);
+    }
+    return static_cast<std::time_t>(ts);   // seconds
+}
+
 // Helper function for basic syntax highlighting
 static std::string apply_syntax_highlighting(const std::string& code, const std::string& language) {
     (void)language;
@@ -82,8 +116,8 @@ ClipboardItemWidget::ClipboardItemWidget(const ClipboardItem& item)
         type_icon = "🔗";
         type_text = "url";
     } else {
-        type_icon = "📄";
-        type_text = "unknown";
+        type_icon = "📝";
+        type_text = "text";
     }
     
     type_label_.set_text(type_icon + " " + type_text);
@@ -138,10 +172,21 @@ ClipboardItemWidget::ClipboardItemWidget(const ClipboardItem& item)
     }
     
     // Time label
-    std::time_t t = item.timestamp / 1000;
+    std::time_t t = normalize_timestamp_to_seconds(item.timestamp);
     std::tm* tm = std::localtime(&t);
     std::ostringstream oss;
-    oss << std::put_time(tm, "%H:%M:%S");
+    std::time_t now = std::time(nullptr);
+    std::tm* now_tm = std::localtime(&now);
+
+    bool same_day = tm && now_tm
+        && tm->tm_year == now_tm->tm_year
+        && tm->tm_yday == now_tm->tm_yday;
+
+    if (same_day) {
+        oss << std::put_time(tm, "%H:%M:%S");
+    } else {
+        oss << std::put_time(tm, "%d/%m %H:%M");
+    }
     time_label_.set_text(oss.str());
     time_label_.set_hexpand(true);
     time_label_.set_halign(Gtk::Align::END);
@@ -220,30 +265,28 @@ ClipboardItemWidget::ClipboardItemWidget(const ClipboardItem& item)
         // Show OCR text preview
         if (!item.ocr_text.empty()) {
             if (!item.code_language.empty()) {
-                std::string ocr_preview = item.ocr_text;
-                if (ocr_preview.length() > 150) {
-                    ocr_preview = ocr_preview.substr(0, 150) + "...";
-                }
+                std::string ocr_preview = truncate_preview(item.ocr_text, 160);
                 ocr_label_.set_text(ocr_preview);
                 ocr_label_.set_wrap(true);
+                ocr_label_.set_wrap_mode(Pango::WrapMode::WORD_CHAR);
                 ocr_label_.set_xalign(0);
-                ocr_label_.set_max_width_chars(60);
+                ocr_label_.set_max_width_chars(56);
+                ocr_label_.set_lines(3);
+                ocr_label_.set_ellipsize(Pango::EllipsizeMode::END);
                 ocr_label_.add_css_class("ocr-label");
                 content_box_.append(ocr_label_);
             } else {
-                std::string trimmed = item.ocr_text;
-                trimmed.erase(0, trimmed.find_first_not_of(" \t\n\r"));
-                trimmed.erase(trimmed.find_last_not_of(" \t\n\r") + 1);
+                std::string trimmed = trim_copy(item.ocr_text);
                 
                 if (trimmed.length() >= 5) {
-                    std::string ocr_preview = trimmed;
-                    if (ocr_preview.length() > 150) {
-                        ocr_preview = ocr_preview.substr(0, 150) + "...";
-                    }
+                    std::string ocr_preview = truncate_preview(trimmed, 160);
                     ocr_label_.set_text(ocr_preview);
                     ocr_label_.set_wrap(true);
+                    ocr_label_.set_wrap_mode(Pango::WrapMode::WORD_CHAR);
                     ocr_label_.set_xalign(0);
-                    ocr_label_.set_max_width_chars(60);
+                    ocr_label_.set_max_width_chars(56);
+                    ocr_label_.set_lines(3);
+                    ocr_label_.set_ellipsize(Pango::EllipsizeMode::END);
                     ocr_label_.add_css_class("ocr-label");
                     content_box_.append(ocr_label_);
                 }
@@ -255,10 +298,7 @@ ClipboardItemWidget::ClipboardItemWidget(const ClipboardItem& item)
         if (!item.content.empty()) {
             display_text = std::string(item.content.begin(), item.content.end());
         }
-        
-        if (display_text.length() > 300) {
-            display_text = display_text.substr(0, 300) + "...";
-        }
+        display_text = truncate_preview(display_text, 280);
         
         // Check if URL
         bool is_url = item.type == ClipboardType::URL || 
@@ -284,7 +324,11 @@ ClipboardItemWidget::ClipboardItemWidget(const ClipboardItem& item)
         }
         
         content_label_.set_wrap(true);
+        content_label_.set_wrap_mode(Pango::WrapMode::WORD_CHAR);
         content_label_.set_xalign(0);
+        content_label_.set_max_width_chars(64);
+        content_label_.set_lines(4);
+        content_label_.set_ellipsize(Pango::EllipsizeMode::END);
         content_label_.set_selectable(false);  // NOT selectable
         content_box_.append(content_label_);
     }

@@ -14,12 +14,12 @@ enum class ClipboardType {
 };
 
 struct ClipboardItem {
-    int64_t id;
-    ClipboardType type;
+    int64_t id = 0;
+    ClipboardType type = ClipboardType::Text;
     std::vector<uint8_t> content;
     std::string mime_type;
     std::string source_app;
-    int64_t timestamp;
+    int64_t timestamp = 0;
     std::string ocr_text;
     std::string code_language;
     std::vector<float> embedding;
@@ -52,6 +52,7 @@ public:
     bool delete_all();
     
     // Search
+    std::vector<ClipboardItem> search_exact(const std::string& query, int limit = 20);
     std::vector<ClipboardItem> search_fts(const std::string& query, int limit = 20);
     std::vector<ClipboardItem> search_by_embedding(const std::vector<float>& embedding, int limit = 20);
     
