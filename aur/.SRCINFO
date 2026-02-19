@@ -1,0 +1,30 @@
+pkgbase = clipboard-smart-manager
+	pkgdesc = Smart clipboard manager for Linux with C++ daemon and UI - OCR, semantic search and password management
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/Sathamlet92/clipboard
+	arch = x86_64
+	license = Apache
+	makedepends = cmake>=3.20
+	makedepends = base-devel
+	makedepends = pkg-config
+	makedepends = grpc
+	makedepends = libgrpc++-dev
+	depends = libx11
+	depends = libxfixes
+	depends = wayland
+	depends = protobuf
+	depends = gcc-libs>=13
+	depends = glibc
+	depends = gtk4
+	depends = gtkmm-4.0
+	depends = sqlite
+	depends = tesseract
+	depends = opencv
+	depends = onnxruntime
+	provides = clipboard-smart-manager
+	conflicts = clipboard-smart-manager
+	source = clipboard-smart-manager::git+https://github.com/Sathamlet92/clipboard.git#branch=main
+	md5sums = SKIP
+
+pkgname = clipboard-smart-manager

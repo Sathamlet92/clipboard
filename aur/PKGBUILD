@@ -1,0 +1,79 @@
+# Maintainer: Sathamlet92 <sathamlet92@example.com>
+pkgname=clipboard-smart-manager
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Smart clipboard manager for Linux with C++ daemon and UI - OCR, semantic search and password management"
+arch=('x86_64')
+url="https://github.com/Sathamlet92/clipboard"
+license=('Apache')
+depends=(
+  'libx11'
+  'libxfixes'
+  'wayland'
+  'protobuf'
+  'gcc-libs>=13'
+  'glibc'
+  'gtk4'
+  'gtkmm-4.0'
+  'sqlite'
+  'tesseract'
+  'opencv'
+  'onnxruntime'
+)
+makedepends=(
+  'cmake>=3.20'
+  'base-devel'
+  'pkg-config'
+  'grpc'
+  'libgrpc++-dev'
+)
+provides=("${pkgname}")
+conflicts=("${pkgname}")
+source=("${pkgname}::git+https://github.com/Sathamlet92/clipboard.git#branch=main")
+md5sums=('SKIP')
+
+pkgver() {
+  cd "${pkgname}"
+  git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "0.1.0"
+}
+
+build() {
+  cd "${pkgname}"
+
+  # Build C++ Daemon
+  mkdir -p daemon/build
+  cd daemon/build
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
+  make
+  cd ../..
+
+  # Build C++ Application
+  mkdir -p clipboard-manager/build
+  cd clipboard-manager/build
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
+  make
+  cd ../..
+}
+
+package() {
+  cd "${pkgname}"
+
+  # Install C++ Daemon
+  cd daemon/build
+  make DESTDIR="${pkgdir}" install
+  cd ../..
+
+  # Install C++ Application
+  cd clipboard-manager/build
+  make DESTDIR="${pkgdir}" install
+  cd ../..
+
+  # Install systemd service
+  install -Dm644 daemon/systemd/clipboard-daemon.service "${pkgdir}/usr/lib/systemd/user/clipboard-daemon.service"
+
+  # Install desktop file
+  install -Dm644 clipboard-manager/com.clipboard.manager.desktop "${pkgdir}/usr/share/applications/com.clipboard.manager.desktop"
+
+  # Install license
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

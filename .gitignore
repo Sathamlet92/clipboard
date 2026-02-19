@@ -64,3 +64,5 @@ __pycache__/
 # Local env / secrets
 .env
 .env.*
+# Documentation
+docs/
