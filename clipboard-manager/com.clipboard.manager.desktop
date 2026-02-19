@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard Manager
+Comment=Clipboard history manager
+Exec=clipboard-manager
+Icon=clipboard-manager
+Terminal=false
+Categories=Utility;
+StartupWMClass=com.clipboard.manager

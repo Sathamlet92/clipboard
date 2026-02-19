@@ -1,0 +1,41 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Logs / temp
+*.log
+output.log
+*.tmp
+
+# C++ build artifacts
+clipboard-manager/build/
+daemon/build/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/install_manifest.txt
+**/build.ninja
+**/compile_commands.json
+
+# Generated protobuf/grpc
+clipboard-manager/*.pb.cc
+clipboard-manager/*.pb.h
+clipboard-manager/*.grpc.pb.cc
+clipboard-manager/*.grpc.pb.h
+
+# .NET artifacts
+**/bin/
+**/obj/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Runtime data
+.clipboard-manager/
+.clipboard-manager-backups/
+
+# Local env / secrets
+.env
+.env.*

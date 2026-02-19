@@ -1,9 +1,0 @@
-✅ Vocabulario cargado: 0 tokens
-✅ Modelo de embeddings cargado: /home/sathamlet/.clipboard-manager/models/ml/embedding-model.onnx
-   Dimensiones: 384
-✅ Tokenizer BPE cargado
-✅ Labels cargados: 26 lenguajes
-✅ Modelo de detección de lenguajes cargado: /home/sathamlet/.clipboard-manager/models/language-detection/model.onnx
-🔧 Inicializando PaddleOCR...
-Downloading ch_PP-OCRv4_det model from https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_det_infer.tar
-✅ CodeClassifier inicializado con 5 ejemplos de código y 5 de texto

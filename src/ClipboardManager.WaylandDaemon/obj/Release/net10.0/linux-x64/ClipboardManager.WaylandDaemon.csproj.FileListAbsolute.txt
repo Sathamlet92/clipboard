@@ -1,5 +1,0 @@
-/home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.WaylandDaemon/obj/Release/net10.0/linux-x64/ClipboardManager.WaylandDaemon.csproj.AssemblyReference.cache
-/home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.WaylandDaemon/obj/Release/net10.0/linux-x64/ClipboardManager.WaylandDaemon.GeneratedMSBuildEditorConfig.editorconfig
-/home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.WaylandDaemon/obj/Release/net10.0/linux-x64/ClipboardManager.WaylandDaemon.AssemblyInfoInputs.cache
-/home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.WaylandDaemon/obj/Release/net10.0/linux-x64/ClipboardManager.WaylandDaemon.AssemblyInfo.cs
-/home/sathamlet/Documents/projects/clipboard-smart-manager/src/ClipboardManager.WaylandDaemon/obj/Release/net10.0/linux-x64/ClipboardManager.WaylandDaemon.csproj.CoreCompileInputs.cache

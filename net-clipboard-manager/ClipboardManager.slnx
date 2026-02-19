@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ClipboardManager.App/ClipboardManager.App.csproj" />
+  <Project Path="ClipboardManager.Core/ClipboardManager.Core.csproj" />
+  <Project Path="ClipboardManager.Daemon.Client/ClipboardManager.Daemon.Client.csproj" />
+  <Project Path="ClipboardManager.Data/ClipboardManager.Data.csproj" />
+  <Project Path="ClipboardManager.ML/ClipboardManager.ML.csproj" />
+</Solution>

@@ -1,6 +1,9 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 
 DRY_RUN=1
 if [ "${1:-}" = "--apply" ]; then
@@ -12,49 +15,17 @@ HYPR_CONF="$HYPR_DIR/hyprland.conf"
 ML4W_CONF="$HYPR_DIR/conf/ml4w.conf"
 KEYBINDING_CONF_POINTER="$HYPR_DIR/conf/keybinding.conf"
 DEFAULT_KB_FILE="$HYPR_DIR/conf/keybindings/default.conf"
-PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT_BUILD_BIN="$PROJECT_ROOT/cpp-app/build/clipboard-manager"
+PROJECT_ROOT="$(project_root_dir)"
 
 if [ ! -f "$HYPR_CONF" ]; then
-    echo "❌ No se encontró $HYPR_CONF"
+    log_err "No se encontró $HYPR_CONF"
     exit 1
 fi
 
-if [ -x "$HOME/.local/bin/clipboard-manager" ]; then
-    CLIP_CMD="$HOME/.local/bin/clipboard-manager"
-elif [ -x "/usr/local/bin/clipboard-manager" ]; then
-    CLIP_CMD="/usr/local/bin/clipboard-manager"
-elif [ -x "$PROJECT_BUILD_BIN" ]; then
-    CLIP_CMD="$PROJECT_BUILD_BIN"
-else
-    CLIP_CMD="clipboard-manager"
-fi
-
-ACTIVE_KB_FILE="$DEFAULT_KB_FILE"
-if [ -f "$KEYBINDING_CONF_POINTER" ]; then
-    SRC_LINE=$(grep -E '^source\s*=\s*' "$KEYBINDING_CONF_POINTER" | head -n1 || true)
-    if [ -n "$SRC_LINE" ]; then
-        SRC_PATH=$(echo "$SRC_LINE" | sed -E 's/^source\s*=\s*//')
-        SRC_PATH=${SRC_PATH/#\~/$HOME}
-        if [ -f "$SRC_PATH" ]; then
-            ACTIVE_KB_FILE="$SRC_PATH"
-        fi
-    fi
-fi
-
-BACKUP_DIR="$HOME/.clipboard-manager-backups/$(date +%Y%m%d_%H%M%S)"
+CLIP_CMD="$(detect_clipboard_binary "$PROJECT_ROOT")"
+ACTIVE_KB_FILE="$(detect_active_keybinding_file "$HYPR_DIR")"
+BACKUP_DIR="$(create_hypr_backup_dir)"
 mkdir -p "$BACKUP_DIR"
-
-backup_file() {
-    local file="$1"
-    if [ -f "$file" ]; then
-        local rel="${file#$HYPR_DIR/}"
-        local target="$BACKUP_DIR/$rel"
-        mkdir -p "$(dirname "$target")"
-        cp "$file" "$target"
-        echo "✅ Backup: $rel"
-    fi
-}
 
 echo "🔧 Configurando Clipboard Manager para Hyprland"
 if [ $DRY_RUN -eq 1 ]; then
@@ -63,10 +34,10 @@ fi
 echo ""
 
 echo "💾 Creando backup..."
-backup_file "$HYPR_CONF"
-backup_file "$ML4W_CONF"
-backup_file "$KEYBINDING_CONF_POINTER"
-backup_file "$ACTIVE_KB_FILE"
+backup_hypr_file "$HYPR_DIR" "$BACKUP_DIR" "$HYPR_CONF"
+backup_hypr_file "$HYPR_DIR" "$BACKUP_DIR" "$ML4W_CONF"
+backup_hypr_file "$HYPR_DIR" "$BACKUP_DIR" "$KEYBINDING_CONF_POINTER"
+backup_hypr_file "$HYPR_DIR" "$BACKUP_DIR" "$ACTIVE_KB_FILE"
 
 cat > "$BACKUP_DIR/restore.sh" << 'EOF'
 #!/bin/bash
@@ -95,7 +66,7 @@ EOF
 chmod +x "$BACKUP_DIR/restore.sh"
 
 if [ ! -f "$ML4W_CONF" ]; then
-    echo "⚠️  No existe ml4w.conf, usaré hyprland.conf para windowrule"
+    log_warn "No existe ml4w.conf, usaré hyprland.conf para windowrule"
     ML4W_CONF="$HYPR_CONF"
 fi
 
@@ -112,8 +83,8 @@ echo "3) Limpieza de binds duplicados/conflictivos"
 echo ""
 
 if [ "$CLIP_CMD" = "clipboard-manager" ]; then
-    echo "⚠️  Aviso: no se encontró binario instalado en ~/.local/bin ni /usr/local/bin"
-    echo "   Puedes instalar con install-arch.sh o copiar el binario compilado."
+    log_warn "Aviso: no se encontró binario instalado en ~/.local/bin ni /usr/local/bin"
+    echo "   Puedes instalar con install-cpp.sh o copiar el binario compilado."
     echo ""
 fi
 

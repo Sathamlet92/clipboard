@@ -1,2 +1,0 @@
-obj/Release/net10.0/Clipboard.cs \
-obj/Release/net10.0/ClipboardGrpc.cs: clipboard.proto

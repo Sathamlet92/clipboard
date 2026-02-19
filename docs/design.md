@@ -690,7 +690,7 @@ sudo cp daemon/build/clipboard-daemon /usr/local/bin/
 sudo cp daemon/clipboard-daemon.service /etc/systemd/system/
 
 # Install app
-sudo cp -r src/ClipboardManager.App/bin/Release/net10.0/ /opt/clipboard-manager/
+sudo cp -r net-clipboard-manager/ClipboardManager.App/bin/Release/net10.0/ /opt/clipboard-manager/
 
 # Create desktop entry
 cp clipboard-manager.desktop ~/.local/share/applications/
