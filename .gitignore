@@ -2,11 +2,18 @@
 .DS_Store
 Thumbs.db
 .vscode/
+.idea/
+.vs/
+*.swp
+*.swo
 
 # Logs / temp
 *.log
 output.log
 *.tmp
+*.bak
+*.orig
+*.rej
 
 # C++ build artifacts
 clipboard-manager/build/
@@ -17,16 +24,34 @@ daemon/build/
 **/install_manifest.txt
 **/build.ninja
 **/compile_commands.json
+**/*.o
+**/*.a
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+**/*.out
 
 # Generated protobuf/grpc
 clipboard-manager/*.pb.cc
 clipboard-manager/*.pb.h
 clipboard-manager/*.grpc.pb.cc
 clipboard-manager/*.grpc.pb.h
+daemon/build/generated/
 
 # .NET artifacts
 **/bin/
 **/obj/
+**/*.user
+**/*.suo
+**/*.userprefs
+**/*.cache
+**/*.pdb
+**/*.mdb
+**/*.ilk
+**/*.nupkg
+**/TestResults/
+net-clipboard-manager/publish/
 
 # Python cache
 __pycache__/
