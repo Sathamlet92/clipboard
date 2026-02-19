@@ -549,34 +549,6 @@ Si usas este proyecto en tu trabajo, apreciaríamos una mención.
 - [libX11](https://www.x.org/) - X11 clipboard
 - [libwayland](https://wayland.freedesktop.org/) - Wayland support
 
-## 🤝 Contribución
-
-¡Contribuciones bienvenidas! Por favor:
-
-1. **Fork** el repositorio
-2. **Crea** una rama para tu feature (`git checkout -b feature/amazing-feature`)
-3. **Haz commit** de tus cambios (`git commit -m 'Add amazing feature'`)
-4. **Push** a la rama (`git push origin feature/amazing-feature`)
-5. **Abre un Pull Request**
-
-Por favor asegúrate que:
-- El código sigue el estilo C++20
-- Compilas en `Release` sin warnings
-- Usas `-DENABLE_TESTS=ON` para verificar tests
-- Actualizas documentación si es necesario
-
-## 📚 Exploración Adicional
-
-- [DESIGN](docs/design.md) - Decisiones arquitectónicas
-- [REQUIREMENTS](docs/requirements.md) - Especificaciones detalladas
-- [TASKS](docs/tasks.md) - Roadmap y tareas pendientes
-
-## 💬 Comunidad
-
-- **Issues**: [Reporta bugs](../../issues)
-- **Discussions**: [Propuestas](../../discussions)
-- **Docs**: [Documentación técnica](docs/)
-
 ## 👤 Autor
 
 Sathamlet92
@@ -584,11 +556,3 @@ Sathamlet92
 ---
 
 **Nota**: Este proyecto está bajo desarrollo activo. Algunas características pueden cambiar sin previo aviso.
-
-## 📞 Contacto
-
-Para preguntas o sugerencias, contacta al equipo de desarrollo.
-
----
-
-**Nota**: Este proyecto está en desarrollo activo. Algunas features pueden cambiar.
