@@ -10,18 +10,18 @@ Un gestor de portapapeles inteligente para Linux con historial infinito, búsque
 - **OCR Automático**: Extrae texto de imágenes automáticamente (PaddleOCR)
 - **Gestión de Contraseñas**: Detección y protección de datos sensibles
 - **Soporte X11/Wayland**: Funciona en cualquier entorno de escritorio Linux
-- **Alto Rendimiento**: Especialmente optimizado para Hyprland
-- **Interfaz Moderna**: UI basada en AvaloniaUI
+- **Alto Rendimiento**: Nativamente compilado en C++ para máxima eficiencia
+- **Interfaz Moderna**: UI nativa con GTK4 y gtkmm
 - **Base de Datos SQLite**: Almacenamiento eficiente con búsqueda full-text (FTS5)
 
 ## 🏗️ Arquitectura
 
 ```
-┌──────────────────────────────────────────┐
-│  UI Application (.NET 10 + AvaloniaUI)   │
-│  - Historial de clipboard                │
-│  - Búsqueda y filtrado                   │
-│  - Configuración                         │
+┌────────────────────────────────────────────┐
+│  UI Application (C++ + GTK4/gtkmm)         │
+│  - Historial de clipboard                  │
+│  - Búsqueda y filtrado                     │
+│  - Configuración                           │
 └────────────┬─────────────────────────────┘
              │ gRPC
 ┌────────────▼─────────────────────────────┐
@@ -31,10 +31,10 @@ Un gestor de portapapeles inteligente para Linux con historial infinito, búsque
 └──────────────────────────────────────────┘
              │
 ┌────────────▼─────────────────────────────┐
-│  ML Services (ONNX Runtime)              │
-│  - OCR (PaddleOCR)                       │
+│  ML Services (C++ + ONNX Runtime)        │
+│  - OCR (Tesseract + PaddleOCR)           │
 │  - Búsqueda Semántica (BERT)             │
-│  - Clasificación                         │
+│  - Clasificación con OpenCV              │
 └──────────────────────────────────────────┘
              │
 ┌────────────▼─────────────────────────────┐
@@ -48,13 +48,14 @@ Un gestor de portapapeles inteligente para Linux con historial infinito, búsque
 
 ### Dependencias de Sistema (Arch Linux)
 ```bash
-base-devel cmake pkgconf libx11 libxfixes wayland protobuf grpc
+base-devel cmake pkg-config gtk4 gtkmm-4.0 sqlite tesseract opencv onnxruntime protobuf grpc
 ```
 
 ### Dependencias de Desarrollo
-- **C++**: CMake, protobuf-compiler, grpc, libx11-dev, libxfixes-dev, wayland-dev
-- **.NET**: .NET 10 SDK, AvaloniaUI 11.x
-- **ML**: ONNX Runtime, modelos PaddleOCR y BERT
+- **Compilador**: GCC/Clang con soporte C++20
+- **Build**: CMake 3.20+, protobuf-compiler, grpc
+- **UI**: GTK4, gtkmm-4.0
+- **ML**: ONNX Runtime, Tesseract, OpenCV
 
 ## 🚀 Instalación
 
@@ -63,30 +64,28 @@ base-devel cmake pkgconf libx11 libxfixes wayland protobuf grpc
 yay -S clipboard-smart-manager
 ```
 
-### Desde Fuente
-
-#### Daemon (C++)
+### Desde Fuente (C++ 100%)
 ```bash
+# Compilar Daemon
 cd daemon
 mkdir -p build && cd build
-cmake ..
-cmake --build . --config Release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
 sudo cmake --install .
-```
+cd ../..
 
-#### Aplicación UI (.NET)
-```bash
-cd net-clipboard-manager
-dotnet build -c Release
+# Compilar Aplicación UI
+cd clipboard-manager
+mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
+sudo cmake --install .
 ```
 
 ### Scripts de Instalación
 ```bash
 # Instalar dependencias de C++
 ./install-cpp.sh
-
-# Instalar dependencias de .NET
-./install-net.sh
 
 # Configurar para Hyprland/Wayland
 ./scripts/setup-wayland.sh
@@ -107,10 +106,10 @@ clipboard-daemon
 ### Iniciar la Aplicación
 ```bash
 # Construida desde fuente
-cd net-clipboard-manager
-dotnet run -c Release
+cd clipboard-manager
+./build/clipboard-manager
 
-# O si está instalada por AUR
+# Instalar sistema (después de cmake --install)
 clipboard-manager
 ```
 
@@ -129,19 +128,22 @@ clipboard-manager
 ### Estructura del Proyecto
 ```
 clipboard-smart-manager/
-├── daemon/                    # Daemon en C++
-│   ├── src/                  # Código fuente
-│   ├── proto/                # Definiciones protobuf
-│   └── protocols/            # Protocolos Wayland
-├── net-clipboard-manager/    # Aplicación .NET
-│   ├── ClipboardManager.App/ # Interfaz AvaloniaUI
-│   ├── ClipboardManager.Core/ # Lógica principal
-│   ├── ClipboardManager.ML/  # Servicios ML
-│   └── ClipboardManager.Daemon.Client/ # Cliente gRPC
-├── models/                   # Modelos ML
-│   ├── bert/                # Modelos BERT
-│   └── paddleocr/           # Modelos OCR
-└── scripts/                 # Scripts de instalación
+├── daemon/                  # Daemon backend en C++
+│   ├── src/                # Código fuente
+│   ├── proto/              # Definiciones protobuf
+│   └── protocols/          # Protocolos Wayland
+├── clipboard-manager/       # Aplicación UI en C++
+│   ├── src/                # Código fuente
+│   │   ├── ui/            # Componentes UI (GTK4/gtkmm)
+│   │   ├── database/      # Gestión de base de datos
+│   │   ├── ml/            # Servicios ML
+│   │   ├── services/      # Lógica de negocio
+│   │   └── grpc/          # Cliente gRPC
+│   └── assets/            # Recursos gráficos
+├── models/                 # Modelos ML pre-entrenados
+│   ├── bert/              # Modelos BERT
+│   └── paddleocr/         # Modelos OCR
+└── scripts/               # Scripts de instalación
 ```
 
 ### Compilar en Modo Debug
@@ -151,16 +153,22 @@ cd daemon
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
+cd ../..
 
-# .NET App
-cd net-clipboard-manager
-dotnet build
+# C++ Application
+cd clipboard-manager
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make
 ```
 
 ### Tests
 ```bash
-cd net-clipboard-manager
-dotnet test
+# Compilar con tests
+cd [daemon|clipboard-manager]
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Debug -DENABLE_TESTS=ON ..
+make test
 ```
 
 ## 📝 Licencia
